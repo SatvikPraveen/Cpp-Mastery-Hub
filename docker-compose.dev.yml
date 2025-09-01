@@ -1,0 +1,284 @@
+# File: docker-compose.dev.yml
+# Extension: .yml
+
+version: "3.8"
+
+services:
+  # PostgreSQL Database (Development)
+  postgres:
+    image: postgres:15-alpine
+    container_name: cpp-mastery-db-dev
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-cpp_mastery_hub_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./docker/database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - cpp-mastery-dev-network
+    restart: unless-stopped
+    command: postgres -c log_statement=all -c log_destination=stderr
+
+  # Redis Cache (Development)
+  redis:
+    image: redis:7-alpine
+    container_name: cpp-mastery-redis-dev
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis123}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - cpp-mastery-dev-network
+    restart: unless-stopped
+
+  # MongoDB (Development)
+  mongodb:
+    image: mongo:6.0
+    container_name: cpp-mastery-mongo-dev
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-mongo123}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-cpp_mastery_community_dev}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongodb_dev_data:/data/db
+    networks:
+      - cpp-mastery-dev-network
+    restart: unless-stopped
+
+  # Backend API Server (Development)
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+      target: development
+    container_name: cpp-mastery-backend-dev
+    environment:
+      NODE_ENV: development
+      PORT: ${BACKEND_PORT:-8000}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/${POSTGRES_DB:-cpp_mastery_hub_dev}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis123}@redis:6379
+      MONGODB_URL: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-mongo123}@mongodb:27017/${MONGO_DB:-cpp_mastery_community_dev}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-not-for-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-refresh-secret-not-for-production}
+      SESSION_SECRET: ${SESSION_SECRET:-dev-session-secret-not-for-production}
+      CPP_ENGINE_URL: http://cpp-engine:9000
+      FRONTEND_URL: http://localhost:3000
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - backend_dev_logs:/app/logs
+      - backend_dev_uploads:/app/uploads
+    networks:
+      - cpp-mastery-dev-network
+    depends_on:
+      - postgres
+      - redis
+      - mongodb
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  # C++ Analysis Engine (Development)
+  cpp-engine:
+    build:
+      context: .
+      dockerfile: docker/cpp-engine/Dockerfile
+      target: development
+    container_name: cpp-mastery-cpp-engine-dev
+    environment:
+      CPP_ENGINE_HOST: 0.0.0.0
+      CPP_ENGINE_PORT: 9000
+      CPP_ENGINE_LOG_LEVEL: DEBUG
+      CPP_ENGINE_SANDBOX: false
+      CPP_ENGINE_TIMEOUT: 60
+    ports:
+      - "${CPP_ENGINE_PORT:-9000}:9000"
+    volumes:
+      - ./cpp-engine:/app
+      - cpp_engine_dev_logs:/app/logs
+      - cpp_engine_dev_cache:/app/cache
+      - cpp_engine_dev_temp:/app/temp
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - cpp-mastery-dev-network
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  # Frontend (Development with hot reload)
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+      target: development
+    container_name: cpp-mastery-frontend-dev
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000
+      NEXT_PUBLIC_CPP_ENGINE_URL: http://localhost:9000
+      NEXT_PUBLIC_ANALYTICS_ENABLED: false
+      WATCHPACK_POLLING: true
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - cpp-mastery-dev-network
+    depends_on:
+      - backend
+      - cpp-engine
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+
+  # Development Database Admin (pgAdmin)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: cpp-mastery-pgadmin-dev
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@cppmastery.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_LISTEN_PORT: 5050
+    ports:
+      - "${PGADMIN_PORT:-5050}:5050"
+    volumes:
+      - pgadmin_dev_data:/var/lib/pgadmin
+    networks:
+      - cpp-mastery-dev-network
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  # Redis Admin (RedisInsight)
+  redis-insight:
+    image: redislabs/redisinsight:latest
+    container_name: cpp-mastery-redis-insight-dev
+    ports:
+      - "${REDIS_INSIGHT_PORT:-8001}:8001"
+    volumes:
+      - redis_insight_dev_data:/db
+    networks:
+      - cpp-mastery-dev-network
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # MongoDB Admin (Mongo Express)
+  mongo-express:
+    image: mongo-express:latest
+    container_name: cpp-mastery-mongo-express-dev
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: ${MONGO_USER:-admin}
+      ME_CONFIG_MONGODB_ADMINPASSWORD: ${MONGO_PASSWORD:-mongo123}
+      ME_CONFIG_MONGODB_URL: mongodb://${MONGO_USER:-admin}:${MONGO_PASSWORD:-mongo123}@mongodb:27017/
+      ME_CONFIG_BASICAUTH_USERNAME: ${MONGO_EXPRESS_USER:-admin}
+      ME_CONFIG_BASICAUTH_PASSWORD: ${MONGO_EXPRESS_PASSWORD:-admin123}
+    ports:
+      - "${MONGO_EXPRESS_PORT:-8081}:8081"
+    networks:
+      - cpp-mastery-dev-network
+    depends_on:
+      - mongodb
+    restart: unless-stopped
+
+  # Development Tools Container
+  dev-tools:
+    image: ubuntu:22.04
+    container_name: cpp-mastery-dev-tools
+    command: tail -f /dev/null
+    environment:
+      DEBIAN_FRONTEND: noninteractive
+    volumes:
+      - ./:/workspace
+      - dev_tools_home:/home/developer
+    networks:
+      - cpp-mastery-dev-network
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+  # Mailhog (Email testing)
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: cpp-mastery-mailhog-dev
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_WEB_PORT:-8025}:8025"
+    networks:
+      - cpp-mastery-dev-network
+    restart: unless-stopped
+
+  # MinIO (S3-compatible object storage for development)
+  minio:
+    image: minio/minio:latest
+    container_name: cpp-mastery-minio-dev
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-minioadmin123}
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_dev_data:/data
+    networks:
+      - cpp-mastery-dev-network
+    restart: unless-stopped
+
+  # Documentation server (serve docs locally)
+  docs:
+    image: nginx:alpine
+    container_name: cpp-mastery-docs-dev
+    ports:
+      - "${DOCS_PORT:-8080}:80"
+    volumes:
+      - ./docs:/usr/share/nginx/html:ro
+    networks:
+      - cpp-mastery-dev-network
+    restart: unless-stopped
+
+# Docker Networks
+networks:
+  cpp-mastery-dev-network:
+    driver: bridge
+    name: cpp-mastery-dev-network
+
+# Docker Volumes
+volumes:
+  postgres_dev_data:
+    name: cpp-mastery-postgres-dev-data
+  redis_dev_data:
+    name: cpp-mastery-redis-dev-data
+  mongodb_dev_data:
+    name: cpp-mastery-mongodb-dev-data
+  backend_dev_logs:
+    name: cpp-mastery-backend-dev-logs
+  backend_dev_uploads:
+    name: cpp-mastery-backend-dev-uploads
+  cpp_engine_dev_logs:
+    name: cpp-mastery-cpp-engine-dev-logs
+  cpp_engine_dev_cache:
+    name: cpp-mastery-cpp-engine-dev-cache
+  cpp_engine_dev_temp:
+    name: cpp-mastery-cpp-engine-dev-temp
+  pgadmin_dev_data:
+    name: cpp-mastery-pgadmin-dev-data
+  redis_insight_dev_data:
+    name: cpp-mastery-redis-insight-dev-data
+  minio_dev_data:
+    name: cpp-mastery-minio-dev-data
+  dev_tools_home:
+    name: cpp-mastery-dev-tools-home

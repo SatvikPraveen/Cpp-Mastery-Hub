@@ -1,0 +1,400 @@
+# =====================================
+# C++ Mastery Hub - Complete .gitignore
+# =====================================
+
+# =====================================
+# Operating System Files
+# =====================================
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# =====================================
+# IDE & Editor Files
+# =====================================
+
+# Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# IntelliJ IDEA / WebStorm / CLion
+.idea/
+*.swp
+*.swo
+*~
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*.swn
+.vim/
+.nvim/
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# =====================================
+# Node.js & Frontend
+# =====================================
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.lcov
+
+# nyc test coverage
+.nyc_output
+
+# Grunt intermediate storage
+.grunt
+
+# Bower dependency directory
+bower_components
+
+# node-waf configuration
+.lock-wscript
+
+# Compiled binary addons
+build/Release
+
+# Dependency directories
+jspm_packages/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# parcel-bundler cache
+.cache
+.parcel-cache
+
+# Next.js build output
+.next/
+out/
+
+# Nuxt.js build / generate output
+.nuxt
+dist/
+
+# Gatsby files
+.cache/
+public
+
+# Storybook build outputs
+.out
+.storybook-out
+
+# Temporary folders
+tmp/
+temp/
+
+# =====================================
+# Backend & Database
+# =====================================
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Prisma
+prisma/migrations/*/migration.sql
+
+# Logs
+logs
+*.log
+
+# =====================================
+# C++ & Build Files
+# =====================================
+
+# Prerequisites
+*.d
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# Build directories
+build/
+bin/
+obj/
+Debug/
+Release/
+x64/
+x86/
+
+# Conan
+conan.lock
+conanbuildinfo.*
+conaninfo.txt
+
+# vcpkg
+vcpkg_installed/
+
+# Clang
+compile_commands.json
+
+# =====================================
+# Docker & Containerization
+# =====================================
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# =====================================
+# Testing
+# =====================================
+
+# Test coverage
+coverage/
+*.lcov
+.coverage
+htmlcov/
+
+# Jest
+jest_*
+.jest/
+
+# Cypress
+cypress/videos
+cypress/screenshots
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
+
+# =====================================
+# Documentation
+# =====================================
+
+# Generated docs
+docs/_build/
+docs/build/
+site/
+
+# =====================================
+# Deployment & CI/CD
+# =====================================
+
+# Deployment artifacts
+*.tar.gz
+*.zip
+
+# GitHub Actions (keep workflows)
+# .github/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Kubernetes
+*.kubeconfig
+
+# =====================================
+# Security & Secrets
+# =====================================
+
+# API keys and secrets
+config/secrets.json
+secrets/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+.secrets
+
+# =====================================
+# Monitoring & Logging
+# =====================================
+
+# Log files
+*.log
+logs/
+log/
+
+# Monitoring data
+metrics/
+prometheus/
+
+# =====================================
+# Cache & Temporary Files
+# =====================================
+
+# General cache
+.cache/
+*.cache
+
+# Package manager cache
+.npm/
+.yarn/
+.pnpm-store/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# =====================================
+# Project Specific
+# =====================================
+
+# User uploaded content
+uploads/
+user-content/
+
+# Generated code output
+output/
+generated/
+
+# Analysis reports
+reports/
+analysis/
+
+# Performance benchmarks
+benchmarks/results/
+
+# Local development overrides
+docker-compose.local.yml
+.env.override
+
+# Backup files
+*.backup
+*.bak
+backup/
+
+# =====================================
+# Package Manager Specific
+# =====================================
+
+# Yarn
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# PNPM
+.pnpm-debug.log*
+.pnpm-store/
+
+# Rush
+common/deploy/
+common/temp/
+**/.rush/temp/
+
+# =====================================
+# End of .gitignore
+# =====================================
