@@ -1,0 +1,71 @@
+// File: backend/tsconfig.json
+// Extension: .json
+
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": false,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "allowUnusedLabels": false,
+    "allowUnreachableCode": false,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": false,
+    "importHelpers": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": "./",
+    "paths": {
+      "@/*": ["src/*"],
+      "@config/*": ["src/config/*"],
+      "@services/*": ["src/services/*"],
+      "@utils/*": ["src/utils/*"],
+      "@middleware/*": ["src/api/middleware/*"],
+      "@routes/*": ["src/api/routes/*"],
+      "@models/*": ["src/models/*"],
+      "@types/*": ["src/types/*"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "prisma/**/*",
+    "*.ts",
+    "*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
+  "ts-node": {
+    "require": ["tsconfig-paths/register"],
+    "esm": false,
+    "experimentalSpecifierResolution": "node"
+  },
+  "compileOnSave": false
+}
