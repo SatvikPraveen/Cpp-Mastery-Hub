@@ -17,10 +17,10 @@ jobs:
     name: cpp-engine image (build = tests + eval)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
       - name: Build (runs the test suite and evaluation inside the build stage)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: cpp-engine
           build-args: GIT_REVISION=${{ github.sha }}
@@ -39,14 +39,14 @@ jobs:
           curl -fs -X POST http://localhost:9000/analyze -H 'Content-Type: application/json' -d '{"code":"int main(){}"}' | python3 -c 'import json,sys; assert json.load(sys.stdin)["schema"]=="cppmastery.analysis/1"'
       - name: Log in to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: cpp-engine
           build-args: GIT_REVISION=${{ github.sha }}
@@ -64,10 +64,10 @@ jobs:
       matrix:
         service: [backend, frontend]
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
       - name: Build
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ matrix.service }}/Dockerfile
@@ -83,14 +83,14 @@ jobs:
           curl -fs http://localhost:3000/api/health
       - name: Log in to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ${{ matrix.service }}/Dockerfile
