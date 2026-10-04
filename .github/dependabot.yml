@@ -12,12 +12,28 @@ updates:
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
+    # Major upgrades are done deliberately as separate migrations.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directory: /cpp-engine
     schedule: { interval: weekly }
+    # Major upgrades are done deliberately as separate migrations.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directory: /backend
     schedule: { interval: weekly }
+    # Major upgrades are done deliberately as separate migrations.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: docker
     directory: /frontend
     schedule: { interval: weekly }
+    # Major upgrades are done deliberately as separate migrations.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
