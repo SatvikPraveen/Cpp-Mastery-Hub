@@ -1,0 +1,7 @@
+# Default owner for everything in the repository.
+*                       @SatvikPraveen
+
+# Analysis engine and its research documentation.
+/cpp-engine/            @SatvikPraveen
+/docs/research/         @SatvikPraveen
+/docs/adr/              @SatvikPraveen

@@ -1,0 +1,37 @@
+name: Bug report
+description: Something behaves incorrectly
+labels: ["bug", "triage"]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options: [cpp-engine, frontend, backend, docker / infrastructure, docs]
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproducer
+      description: For engine bugs, paste the smallest C++ snippet and the exact `cppmastery` command.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs. actual behaviour
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      description: Output of `cppmastery version` or the git SHA.
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, compiler, Node version, Docker version as relevant.

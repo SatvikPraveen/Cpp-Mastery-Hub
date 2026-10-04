@@ -1,8 +1,12 @@
 {
   "name": "cpp-mastery-hub",
   "version": "1.0.0",
-  "description": "Advanced C++ learning platform with real-time code execution, analysis, and community features",
-  "author": "C++ Mastery Hub Team",
+  "description": "Research-grade C++ learning platform: dependency-free analysis engine, Next.js front end, Express/Prisma API.",
+  "author": {
+    "name": "Satvik Praveen",
+    "email": "satvikpraveen707@gmail.com",
+    "url": "https://github.com/SatvikPraveen"
+  },
   "license": "MIT",
   "private": true,
   "workspaces": [
@@ -17,19 +21,19 @@
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:cpp-engine\"",
     "dev:frontend": "cd frontend && npm run dev",
     "dev:backend": "cd backend && npm run dev",
-    "dev:cpp-engine": "cd cpp-engine && make dev",
+    "dev:cpp-engine": "cd cpp-engine && cmake --workflow --preset dev",
     "build": "npm run build:frontend && npm run build:backend && npm run build:cpp-engine",
     "build:frontend": "cd frontend && npm run build",
     "build:backend": "cd backend && npm run build",
-    "build:cpp-engine": "cd cpp-engine && make build",
+    "build:cpp-engine": "cd cpp-engine && cmake --preset release && cmake --build --preset release",
     "start": "concurrently \"npm run start:backend\" \"npm run start:frontend\"",
     "start:frontend": "cd frontend && npm start",
     "start:backend": "cd backend && npm start",
-    "start:cpp-engine": "cd cpp-engine && ./build/cpp_mastery_engine",
+    "start:cpp-engine": "cd cpp-engine && ./build/release/cppmastery --help",
     "test": "npm run test:frontend && npm run test:backend && npm run test:cpp-engine",
     "test:frontend": "cd frontend && npm test",
     "test:backend": "cd backend && npm test",
-    "test:cpp-engine": "cd cpp-engine && make test",
+    "test:cpp-engine": "cd cpp-engine && cmake --workflow --preset dev",
     "test:e2e": "cd frontend && npm run test:e2e",
     "lint": "npm run lint:frontend && npm run lint:backend",
     "lint:frontend": "cd frontend && npm run lint",
@@ -38,7 +42,7 @@
     "format": "npm run format:frontend && npm run format:backend && npm run format:cpp-engine",
     "format:frontend": "cd frontend && npm run format",
     "format:backend": "cd backend && npm run format",
-    "format:cpp-engine": "cd cpp-engine && find src include -name '*.cpp' -o -name '*.hpp' | xargs clang-format -i",
+    "format:cpp-engine": "cd cpp-engine && cmake --build --preset dev --target format",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
     "clean": "npm run clean:frontend && npm run clean:backend && npm run clean:cpp-engine",
     "clean:frontend": "cd frontend && rm -rf .next dist build node_modules/.cache",
@@ -61,20 +65,16 @@
     "setup:dev": "npm run install:all && npm run docker:dev && sleep 10 && npm run db:migrate && npm run db:seed",
     "deploy:staging": "npm run build && npm run docker:build && npm run docker:up",
     "deploy:prod": "npm run build && npm run docker:prod",
-    "backup:db": "./scripts/backup/backup-db.sh",
-    "restore:db": "./scripts/backup/restore-db.sh",
-    "docs:build": "cd docs && npm run build",
-    "docs:serve": "cd docs && npm run serve",
     "security:audit": "npm audit && cd frontend && npm audit && cd ../backend && npm audit",
     "security:fix": "npm audit fix && cd frontend && npm audit fix && cd ../backend && npm audit fix",
-    "performance:test": "cd frontend && npm run lighthouse",
-    "performance:backend": "cd backend && npm run benchmark",
     "monitor:logs": "docker-compose logs -f --tail=100",
     "monitor:stats": "docker stats",
     "health:check": "npm run health:frontend && npm run health:backend && npm run health:cpp-engine",
     "health:frontend": "curl -f http://localhost:3000/api/health || echo 'Frontend unhealthy'",
     "health:backend": "curl -f http://localhost:8000/health || echo 'Backend unhealthy'",
-    "health:cpp-engine": "curl -f http://localhost:9000/health || echo 'C++ Engine unhealthy'"
+    "health:cpp-engine": "curl -f http://localhost:9000/health || echo 'C++ Engine unhealthy'",
+    "eval:cpp-engine": "cd cpp-engine && python3 eval/run_eval.py --cli build/release/cppmastery",
+    "type-check": "npm run type-check --workspace frontend && npm run type-check --workspace backend"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
@@ -97,12 +97,6 @@
       "clang-format -i"
     ]
   },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged",
-      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
-    }
-  },
   "commitlint": {
     "extends": [
       "@commitlint/config-conventional"
@@ -110,7 +104,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/cpp-mastery-hub.git"
+    "url": "git+https://github.com/SatvikPraveen/Cpp-Mastery-Hub.git"
   },
   "keywords": [
     "cpp",
@@ -127,7 +121,7 @@
     "docker"
   ],
   "bugs": {
-    "url": "https://github.com/yourusername/cpp-mastery-hub/issues"
+    "url": "https://github.com/SatvikPraveen/Cpp-Mastery-Hub/issues"
   },
-  "homepage": "https://github.com/yourusername/cpp-mastery-hub#readme"
+  "homepage": "https://github.com/SatvikPraveen/Cpp-Mastery-Hub#readme"
 }

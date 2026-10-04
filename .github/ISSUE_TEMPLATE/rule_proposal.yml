@@ -1,0 +1,40 @@
+name: Analysis rule proposal
+description: Propose a new engine rule or a change to an existing one
+labels: ["engine", "rule"]
+body:
+  - type: input
+    id: id
+    attributes:
+      label: Proposed rule id
+      placeholder: category/kebab-name
+    validations:
+      required: true
+  - type: textarea
+    id: rationale
+    attributes:
+      label: Rationale and reference
+      description: Which Core Guidelines item, CERT rule, CWE or paper motivates this? Every shipped rule carries a citation.
+    validations:
+      required: true
+  - type: textarea
+    id: positives
+    attributes:
+      label: Code that must be flagged
+      render: cpp
+    validations:
+      required: true
+  - type: textarea
+    id: negatives
+    attributes:
+      label: Code that must NOT be flagged
+      description: Precision matters more than recall for a teaching tool.
+      render: cpp
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Proposed severity
+      options: [info, warning, error]
+    validations:
+      required: true
