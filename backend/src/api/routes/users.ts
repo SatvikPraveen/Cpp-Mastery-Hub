@@ -1,7 +1,3 @@
-// File: backend/src/api/routes/users.ts
-// Extension: .ts
-// Location: backend/src/api/routes/users.ts
-
 import { Router, Request, Response } from 'express';
 import { authenticateToken, optionalAuth } from '../middleware/auth';
 import { ValidationMiddleware } from '../middleware/validation';

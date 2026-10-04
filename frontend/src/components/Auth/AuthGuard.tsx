@@ -1,6 +1,3 @@
-// File: frontend/src/components/Auth/AuthGuard.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { Loading } from '../UI/Loading';

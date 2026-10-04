@@ -1,6 +1,3 @@
-// File: frontend/src/pages/community/index.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Search, Filter, TrendingUp, MessageSquare, Users, Award, Plus, Clock, Star, Eye } from 'lucide-react';

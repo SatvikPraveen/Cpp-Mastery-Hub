@@ -1,7 +1,3 @@
-// File: tests/integration/auth.test.ts
-// Extension: .ts
-// Location: tests/integration/auth.test.ts
-
 /**
  * C++ Mastery Hub - Authentication Integration Tests
  * Comprehensive tests for user authentication flows

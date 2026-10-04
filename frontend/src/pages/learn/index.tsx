@@ -1,6 +1,3 @@
-// File: frontend/src/pages/learn/index.tsx
-// Extension: .tsx (TypeScript Next.js Page)
-
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';

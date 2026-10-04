@@ -1,5 +1,3 @@
-// File: backend/src/services/learning/progress.ts
-// Extension: .ts
 import { PrismaClient } from '@prisma/client';
 import { logger } from '../utils/logger';
 

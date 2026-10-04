@@ -1,7 +1,3 @@
-// File: backend/src/types/config.ts
-// Extension: .ts
-// Location: backend/src/types/config.ts
-
 export interface AppConfig {
   app: {
     name: string;

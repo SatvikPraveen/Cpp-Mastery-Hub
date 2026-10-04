@@ -1,4 +1,3 @@
-// File: backend/tests/unit/services.test.ts
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import { AnalysisService } from '../../src/services/analyzer/analysis-service';
 import { ExecutionService } from '../../src/services/compiler/execution-service';

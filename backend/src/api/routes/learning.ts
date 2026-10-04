@@ -1,6 +1,3 @@
-// File: backend/src/api/routes/learning.ts
-// Extension: .ts
-
 import { Router, Request, Response, NextFunction } from 'express';
 import { body, param, query } from 'express-validator';
 

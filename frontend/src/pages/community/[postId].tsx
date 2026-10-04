@@ -1,6 +1,3 @@
-// File: frontend/src/pages/community/[postId].tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { GetServerSideProps } from 'next';

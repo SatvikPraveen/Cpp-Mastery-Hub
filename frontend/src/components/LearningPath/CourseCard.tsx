@@ -1,4 +1,3 @@
-// File: frontend/src/components/LearningPath/CourseCard.tsx
 import Link from 'next/link';
 import { Badge } from '@/components/UI/Badge';
 import { Progress } from '@/components/UI/Progress';

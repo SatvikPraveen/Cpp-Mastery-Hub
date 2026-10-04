@@ -1,7 +1,3 @@
-// File: backend/src/types/cache.ts
-// Extension: .ts
-// Location: backend/src/types/cache.ts
-
 export interface CacheOptions {
   ttl?: number; // Time to live in seconds
   tags?: string[]; // Cache tags for invalidation

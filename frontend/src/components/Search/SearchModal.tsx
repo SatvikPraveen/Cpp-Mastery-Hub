@@ -1,6 +1,3 @@
-// File: frontend/src/components/Search/SearchModal.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal } from '../UI/Modal';
 import { Loading } from '../UI/Loading';

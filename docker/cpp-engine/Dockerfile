@@ -1,6 +1,3 @@
-# File: docker/cpp-engine/Dockerfile
-# Extension: (no extension - Dockerfile)
-
 # Multi-stage build for C++ engine
 FROM ubuntu:22.04 AS builder
 

@@ -1,6 +1,3 @@
-// File: frontend/src/components/Search/SearchResults.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React from 'react';
 import { Badge } from '../UI/Badge';
 import { Loading } from '../UI/Loading';

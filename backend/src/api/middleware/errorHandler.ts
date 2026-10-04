@@ -1,6 +1,3 @@
-// File: backend/src/api/middleware/errorHandler.ts
-// Extension: .ts
-
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { PrismaClientKnownRequestError, PrismaClientValidationError } from '@prisma/client/runtime/library';

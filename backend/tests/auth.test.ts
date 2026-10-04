@@ -1,7 +1,3 @@
-// File: backend/tests/auth.test.ts
-// Extension: .ts
-// Location: backend/tests/auth.test.ts
-
 import request from 'supertest';
 import { app } from '../src/server';
 import { User } from '../src/models/User';

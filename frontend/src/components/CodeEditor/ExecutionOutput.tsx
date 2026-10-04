@@ -1,6 +1,3 @@
-// File: frontend/src/components/CodeEditor/ExecutionOutput.tsx
-// Extension: .tsx
-
 import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle, 

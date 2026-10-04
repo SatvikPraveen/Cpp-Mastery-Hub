@@ -1,7 +1,3 @@
-// File: frontend/src/utils/helpers.ts
-// Extension: .ts
-// Location: frontend/src/utils/helpers.ts
-
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 

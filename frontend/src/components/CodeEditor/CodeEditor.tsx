@@ -1,6 +1,3 @@
-// File: frontend/src/components/CodeEditor/CodeEditor.tsx
-// Extension: .tsx
-
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as monaco from 'monaco-editor';
 import { 

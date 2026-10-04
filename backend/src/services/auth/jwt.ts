@@ -1,6 +1,3 @@
-// File: backend/src/services/auth/jwt.ts
-// Extension: .ts
-
 import jwt from 'jsonwebtoken';
 import config from '../../config';
 import { logger } from '../../utils/logger';

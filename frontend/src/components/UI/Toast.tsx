@@ -1,6 +1,3 @@
-// File: frontend/src/components/UI/Toast.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useEffect, useState, createContext, useContext } from 'react';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';

@@ -1,5 +1,3 @@
-// File: backend/src/api/routes/community.ts
-// Extension: .ts
 import { Router, Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authMiddleware } from '../middleware/auth';

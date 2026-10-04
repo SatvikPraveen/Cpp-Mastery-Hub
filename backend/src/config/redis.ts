@@ -1,6 +1,3 @@
-# File: backend/src/config/redis.ts
-# Extension: .ts
-
 import Redis from 'ioredis';
 import { logger } from '../utils/logger';
 import { config, redisConfig } from './index';

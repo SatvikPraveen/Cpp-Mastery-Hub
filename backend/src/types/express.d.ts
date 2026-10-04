@@ -1,7 +1,3 @@
-// File: backend/src/types/express.d.ts
-// Extension: .ts
-// Location: backend/src/types/express.d.ts
-
 import { User } from '@prisma/client';
 
 declare global {

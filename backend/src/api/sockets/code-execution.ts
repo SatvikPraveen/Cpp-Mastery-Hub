@@ -1,6 +1,3 @@
-// File: backend/src/api/sockets/code-execution.ts
-// Extension: .ts (TypeScript Socket Handler)
-
 import { Server, Socket } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Redis } from 'ioredis';

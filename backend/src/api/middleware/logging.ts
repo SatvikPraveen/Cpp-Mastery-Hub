@@ -1,6 +1,3 @@
-// File: backend/src/api/middleware/logging.ts
-// Extension: .ts (TypeScript Middleware)
-
 import { Request, Response, NextFunction } from 'express';
 import { createLogger, format, transports, Logger } from 'winston';
 import { v4 as uuidv4 } from 'uuid';

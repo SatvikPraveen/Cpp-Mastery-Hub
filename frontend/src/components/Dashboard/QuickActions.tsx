@@ -1,5 +1,3 @@
-// File: frontend/src/components/Dashboard/QuickActions.tsx
-// Extension: .tsx
 'use client';
 
 import React from 'react';

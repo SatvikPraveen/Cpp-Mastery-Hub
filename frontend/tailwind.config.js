@@ -1,6 +1,3 @@
-# File: frontend/tailwind.config.js
-# Extension: .js
-
 /** @type {import('tailwindcss').Config} */
 
 const { fontFamily } = require('tailwindcss/defaultTheme');

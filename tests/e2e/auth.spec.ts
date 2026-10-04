@@ -1,7 +1,3 @@
-// File: tests/e2e/auth.spec.ts
-// Extension: .ts
-// Location: tests/e2e/auth.spec.ts
-
 import { test, expect, Page } from '@playwright/test';
 
 test.describe('Authentication Flow', () => {

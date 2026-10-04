@@ -1,6 +1,3 @@
-// File: backend/src/services/auth/auth-service.ts
-// Extension: .ts (TypeScript Service)
-
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';

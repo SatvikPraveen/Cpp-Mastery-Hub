@@ -1,6 +1,3 @@
-# File: docker/backend/Dockerfile
-# Extension: Dockerfile
-
 # Multi-stage build for Node.js backend
 FROM node:18-alpine AS base
 

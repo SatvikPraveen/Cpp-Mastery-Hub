@@ -1,4 +1,3 @@
-// File: frontend/src/components/CodeEditor/SettingsPanel.tsx
 import React, { useState } from 'react';
 import { Button } from '@/components/UI/Button';
 import { Input } from '@/components/UI/Input';

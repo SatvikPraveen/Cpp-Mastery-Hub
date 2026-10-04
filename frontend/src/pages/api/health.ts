@@ -1,6 +1,3 @@
-// File: frontend/src/pages/api/health.ts
-// Extension: .ts (Next.js API Route)
-
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 interface HealthCheck {

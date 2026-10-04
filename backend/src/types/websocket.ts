@@ -1,7 +1,3 @@
-// File: backend/src/types/websocket.ts
-// Extension: .ts
-// Location: backend/src/types/websocket.ts
-
 export interface WebSocketEvent<T = any> {
   type: string;
   payload: T;

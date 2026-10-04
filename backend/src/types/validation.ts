@@ -1,7 +1,3 @@
-// File: backend/src/types/validation.ts
-// Extension: .ts
-// Location: backend/src/types/validation.ts
-
 export interface ValidationSchema {
   [key: string]: ValidationRule | ValidationRule[];
 }

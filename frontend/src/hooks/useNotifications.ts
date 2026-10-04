@@ -1,6 +1,3 @@
-// File: frontend/src/hooks/useNotifications.ts
-// Extension: .ts (TypeScript Hook)
-
 import { useState, useEffect, useCallback } from 'react';
 import { NotificationData } from '../components/Notification/Notification';
 

@@ -1,6 +1,3 @@
-// File: frontend/src/components/UI/Badge.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React from 'react';
 
 export type BadgeVariant = 

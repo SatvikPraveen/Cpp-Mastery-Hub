@@ -1,5 +1,3 @@
-// File: frontend/src/components/LearningPath/ProgressTracker.tsx
-// Extension: .tsx
 import React, { useState, useEffect } from 'react';
 import { Progress } from '@/components/UI/Progress';
 import { Badge } from '@/components/UI/Badge';

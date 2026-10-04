@@ -1,9 +1,4 @@
 #!/bin/bash
-
-# File: scripts/deploy/production.sh
-# Extension: .sh
-# Location: scripts/deploy/production.sh
-
 set -e
 
 echo "🚀 Deploying C++ Mastery Hub to Production Environment..."

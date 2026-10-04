@@ -1,6 +1,3 @@
-// File: frontend/src/hooks/useDebounce.ts
-// Extension: .ts (TypeScript Hook)
-
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 
 /**

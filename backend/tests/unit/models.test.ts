@@ -1,7 +1,3 @@
-// File: backend/tests/unit/models.test.ts
-// Extension: .ts
-// Location: backend/tests/unit/models.test.ts
-
 import { User } from '../../src/models/User';
 import { Course } from '../../src/models/Course';
 import { CodeSnippet } from '../../src/models/CodeSnippet';

@@ -1,7 +1,3 @@
-// File: tests/integration/database.test.ts
-// Extension: .ts
-// Location: tests/integration/database.test.ts
-
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 import { PrismaClient } from '@prisma/client';
 import { MongoClient, Db } from 'mongodb';

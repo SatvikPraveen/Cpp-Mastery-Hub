@@ -1,4 +1,3 @@
-// File: frontend/src/components/UI/Modal.tsx
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/utils/cn';

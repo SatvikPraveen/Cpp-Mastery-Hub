@@ -1,4 +1,3 @@
-// File: frontend/tests/components/Dashboard.test.tsx
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { jest, describe, test, expect, beforeEach } from '@jest/globals';

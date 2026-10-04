@@ -1,6 +1,3 @@
-// File: frontend/src/pages/index.tsx
-// Extension: .tsx
-
 import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';

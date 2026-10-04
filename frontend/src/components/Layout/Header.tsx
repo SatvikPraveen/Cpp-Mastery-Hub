@@ -1,4 +1,3 @@
-// File: frontend/src/components/Layout/Header.tsx
 import { Search, Bell, Moon, Sun, Menu } from 'lucide-react';
 import { useTheme } from '@/hooks/useTheme';
 import { useState } from 'react';

@@ -1,5 +1,3 @@
-// File: frontend/src/utils/constants.ts
-// Extension: .ts
 export const APP_CONFIG = {
   name: 'C++ Mastery Hub',
   version: '1.0.0',

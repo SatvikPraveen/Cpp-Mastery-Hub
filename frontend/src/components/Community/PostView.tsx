@@ -1,5 +1,3 @@
-// File: frontend/src/components/Community/PostView.tsx
-// Extension: .tsx
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/UI/Button';
 import { CommentSystem } from './CommentSystem';

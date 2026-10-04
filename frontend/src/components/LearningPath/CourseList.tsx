@@ -1,4 +1,3 @@
-// File: frontend/src/components/LearningPath/CourseList.tsx
 import React, { useState, useEffect } from 'react';
 import { CourseCard } from './CourseCard';
 import { Button } from '@/components/UI/Button';

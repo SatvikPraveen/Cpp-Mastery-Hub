@@ -1,7 +1,3 @@
-# File: frontend/Dockerfile
-# Extension: (no extension)
-# Location: frontend/Dockerfile
-
 # Multi-stage build for Frontend
 FROM node:18-alpine AS base
 

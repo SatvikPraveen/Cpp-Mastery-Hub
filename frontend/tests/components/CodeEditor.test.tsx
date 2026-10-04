@@ -1,7 +1,3 @@
-// File: frontend/tests/components/CodeEditor.test.tsx
-// Extension: .tsx
-// Location: frontend/tests/components/CodeEditor.test.tsx
-
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

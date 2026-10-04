@@ -1,6 +1,3 @@
-// File: frontend/src/components/Community/CommentSystem.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '../UI/Button';
 import { Loading } from '../UI/Loading';

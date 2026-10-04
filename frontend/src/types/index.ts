@@ -1,6 +1,3 @@
-// File: frontend/src/types/index.ts
-// Extension: .ts
-
 // User and Authentication Types
 export interface User {
   id: string;

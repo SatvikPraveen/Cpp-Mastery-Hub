@@ -1,7 +1,3 @@
-// File: tests/e2e/learning.spec.ts
-// Extension: .ts
-// Location: tests/e2e/learning.spec.ts
-
 import { test, expect, Page } from '@playwright/test';
 
 test.describe('Learning Platform', () => {

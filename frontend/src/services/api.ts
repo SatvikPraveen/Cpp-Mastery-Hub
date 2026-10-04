@@ -1,6 +1,3 @@
-// File: frontend/src/services/api.ts
-// Extension: .ts (TypeScript Service)
-
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { toast } from 'react-hot-toast';
 

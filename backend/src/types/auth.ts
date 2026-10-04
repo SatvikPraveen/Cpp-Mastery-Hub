@@ -1,7 +1,3 @@
-// File: backend/src/types/auth.ts
-// Extension: .ts
-// Location: backend/src/types/auth.ts
-
 export interface JWTPayload {
   userId: string;
   email: string;

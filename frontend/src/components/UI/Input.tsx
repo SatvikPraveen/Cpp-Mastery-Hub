@@ -1,4 +1,3 @@
-// File: frontend/src/components/UI/Input.tsx
 import React, { forwardRef, InputHTMLAttributes } from 'react';
 import { cn } from '@/utils/cn';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';

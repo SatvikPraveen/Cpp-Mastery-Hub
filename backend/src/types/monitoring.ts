@@ -1,7 +1,3 @@
-// File: backend/src/types/monitoring.ts
-// Extension: .ts
-// Location: backend/src/types/monitoring.ts
-
 export interface SystemMetrics {
   timestamp: Date;
   cpu: {

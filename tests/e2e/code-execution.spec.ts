@@ -1,7 +1,3 @@
-// File: tests/e2e/code-execution.spec.ts
-// Extension: .ts
-// Location: tests/e2e/code-execution.spec.ts
-
 import { test, expect, Page } from '@playwright/test';
 
 test.describe('Code Execution and Editor', () => {

@@ -1,5 +1,3 @@
-// File: frontend/src/components/LearningPath/ExerciseView.tsx
-// Extension: .tsx
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/UI/Button';
 import { CodeEditor } from '@/components/CodeEditor/CodeEditor';

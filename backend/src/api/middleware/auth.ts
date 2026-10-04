@@ -1,6 +1,3 @@
-// File: backend/src/api/middleware/auth.ts
-// Extension: .ts
-
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';

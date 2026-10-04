@@ -1,6 +1,3 @@
-# File: backend/src/config/index.ts
-# Extension: .ts
-
 import dotenv from 'dotenv';
 import { z } from 'zod';
 

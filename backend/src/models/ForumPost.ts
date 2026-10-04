@@ -1,6 +1,3 @@
-// File: backend/src/models/ForumPost.ts
-// Extension: .ts (TypeScript Model)
-
 import { z } from 'zod';
 
 // Enums

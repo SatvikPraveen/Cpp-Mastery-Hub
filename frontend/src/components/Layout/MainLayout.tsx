@@ -1,6 +1,3 @@
-// File: frontend/src/components/Layout/MainLayout.tsx
-// Extension: .tsx
-
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';

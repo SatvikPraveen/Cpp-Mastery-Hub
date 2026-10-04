@@ -1,6 +1,3 @@
-# File: backend/src/utils/errors.ts
-# Extension: .ts
-
 /**
  * Custom API Error class for structured error handling
  */

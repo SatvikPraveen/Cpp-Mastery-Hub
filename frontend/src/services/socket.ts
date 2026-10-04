@@ -1,6 +1,3 @@
-// File: frontend/src/services/socket.ts
-// Extension: .ts (TypeScript Service)
-
 interface SocketMessage {
   type: string;
   payload?: any;

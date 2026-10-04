@@ -1,6 +1,3 @@
-// File: frontend/src/components/Auth/RegisterForm.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useState } from 'react';
 import { Button } from '../UI/Button';
 import { Input } from '../UI/Input';

@@ -1,6 +1,3 @@
-// File: frontend/src/components/Notification/NotificationList.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useState, useEffect } from 'react';
 import { Notification, NotificationData } from './Notification';
 import { Loading } from '../UI/Loading';

@@ -1,4 +1,3 @@
-// File: frontend/src/components/Layout/Footer.tsx
 export const Footer: React.FC = () => {
   return (
     <footer className="bg-background border-t border-border py-8 px-6">

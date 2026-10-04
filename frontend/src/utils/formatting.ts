@@ -1,7 +1,3 @@
-// File: frontend/src/utils/formatting.ts
-// Extension: .ts
-// Location: frontend/src/utils/formatting.ts
-
 /**
  * Format a date to a relative time string (e.g., "2 hours ago", "3 days ago")
  */

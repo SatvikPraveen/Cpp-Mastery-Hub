@@ -1,7 +1,3 @@
-// File: backend/src/types/api.ts
-// Extension: .ts
-// Location: backend/src/types/api.ts
-
 export interface APIResponse<T = any> {
   success: boolean;
   data?: T;

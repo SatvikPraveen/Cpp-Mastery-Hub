@@ -1,7 +1,3 @@
-// File: tests/integration/learning-flow.test.ts
-// Extension: .ts
-// Location: tests/integration/learning-flow.test.ts
-
 /**
  * C++ Mastery Hub - Learning Flow Integration Tests
  * End-to-end tests for complete learning workflows

@@ -1,6 +1,3 @@
-// File: frontend/src/components/Notification/NotificationSettings.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '../UI/Button';
 import { Badge } from '../UI/Badge';

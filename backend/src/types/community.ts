@@ -1,7 +1,3 @@
-// File: backend/src/types/community.ts
-// Extension: .ts
-// Location: backend/src/types/community.ts
-
 export interface ForumPost {
   id: string;
   title: string;

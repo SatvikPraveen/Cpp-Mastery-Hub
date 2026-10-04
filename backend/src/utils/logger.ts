@@ -1,6 +1,3 @@
-// File: backend/src/utils/logger.ts
-// Extension: .ts
-
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
 import config from '../config';

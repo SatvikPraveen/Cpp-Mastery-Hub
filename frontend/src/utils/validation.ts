@@ -1,5 +1,3 @@
-// File: frontend/src/utils/validation.ts
-// Extension: .ts
 /**
  * Validation utility functions for forms and user input
  */

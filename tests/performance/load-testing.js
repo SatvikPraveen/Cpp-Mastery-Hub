@@ -1,7 +1,3 @@
-// File: tests/performance/load-testing.js
-// Extension: .js
-// Location: tests/performance/load-testing.js
-
 import http from 'k6/http';
 import { check, sleep, group } from 'k6';
 import { Rate, Trend, Counter } from 'k6/metrics';

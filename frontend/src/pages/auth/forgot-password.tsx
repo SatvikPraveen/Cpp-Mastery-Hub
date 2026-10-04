@@ -1,6 +1,3 @@
-// File: frontend/src/pages/auth/forgot-password.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';

@@ -1,6 +1,3 @@
-// File: frontend/src/utils/monaco-config.ts
-// Extension: .ts
-
 import { languages, editor } from 'monaco-editor';
 
 // C++ Language Configuration

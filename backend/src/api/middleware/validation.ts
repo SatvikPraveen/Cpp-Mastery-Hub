@@ -1,6 +1,3 @@
-// File: backend/src/api/middleware/validation.ts
-// Extension: .ts
-
 import { Request, Response, NextFunction } from 'express';
 import { validationResult, ValidationError } from 'express-validator';
 

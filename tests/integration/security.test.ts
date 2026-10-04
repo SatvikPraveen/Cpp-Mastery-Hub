@@ -1,7 +1,3 @@
-// File: tests/integration/security.test.ts
-// Extension: .ts
-// Location: tests/integration/security.test.ts
-
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';

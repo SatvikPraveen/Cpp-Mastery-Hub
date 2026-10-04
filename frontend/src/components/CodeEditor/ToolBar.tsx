@@ -1,4 +1,3 @@
-// File: frontend/src/components/CodeEditor/ToolBar.tsx
 import { 
   Play, 
   Square, 

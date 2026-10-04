@@ -1,5 +1,3 @@
-// File: frontend/src/components/Dashboard/StatsCard.tsx
-// Extension: .tsx
 'use client';
 
 import React from 'react';

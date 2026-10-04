@@ -1,6 +1,3 @@
-// File: backend/src/api/middleware/rateLimit.ts
-// Extension: .ts (TypeScript Middleware)
-
 import { Request, Response, NextFunction } from 'express';
 import { Redis } from 'ioredis';
 

@@ -1,6 +1,3 @@
-// File: frontend/src/hooks/useAuth.ts
-// Extension: .ts (TypeScript Hook)
-
 import { useState, useEffect, useCallback, useContext, createContext } from 'react';
 import { authService, LoginCredentials, RegisterData, ChangePasswordData } from '../services/auth';
 import { User } from '../types';

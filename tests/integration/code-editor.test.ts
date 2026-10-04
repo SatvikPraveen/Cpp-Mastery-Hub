@@ -1,7 +1,3 @@
-// File: tests/integration/code-editor.test.ts
-// Extension: .ts
-// Location: tests/integration/code-editor.test.ts
-
 /**
  * C++ Mastery Hub - Code Editor Integration Tests
  * Comprehensive tests for code editing, compilation, and execution

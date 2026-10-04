@@ -1,6 +1,3 @@
-// File: frontend/src/hooks/useCodeExecution.ts
-// Extension: .ts (TypeScript Hook)
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiService } from '../services/api';
 import { storageService } from '../services/storage';

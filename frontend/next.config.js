@@ -1,6 +1,3 @@
-// File: frontend/next.config.js
-// Extension: .js
-
 /** @type {import('next').NextConfig} */
 
 const withBundleAnalyzer = require('@next/bundle-analyzer')({

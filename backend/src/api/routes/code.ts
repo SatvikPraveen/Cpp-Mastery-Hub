@@ -1,6 +1,3 @@
-// File: backend/src/api/routes/code.ts
-// Extension: .ts
-
 import { Router, Request, Response, NextFunction } from 'express';
 import { body, param, query, validationResult } from 'express-validator';
 import rateLimit from 'express-rate-limit';

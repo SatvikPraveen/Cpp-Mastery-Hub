@@ -1,7 +1,3 @@
-// File: backend/src/api/routes/admin.ts
-// Extension: .ts
-// Location: backend/src/api/routes/admin.ts
-
 import { Router, Request, Response } from 'express';
 import { authenticateToken, requireRole } from '../middleware/auth';
 import { ValidationMiddleware, schemas } from '../middleware/validation';

@@ -1,6 +1,3 @@
-// File: frontend/src/hooks/useWebSocket.ts
-// Extension: .ts (TypeScript Hook)
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 export type ReadyState = {

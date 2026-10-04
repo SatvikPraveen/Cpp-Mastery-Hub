@@ -1,6 +1,3 @@
-// File: frontend/src/components/UI/ErrorBoundary.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 
 interface Props {

@@ -1,5 +1,3 @@
-// File: frontend/src/components/Visualizer/MemoryVisualizer.tsx
-// Extension: .tsx
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';

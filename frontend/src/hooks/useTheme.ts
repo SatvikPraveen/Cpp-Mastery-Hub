@@ -1,6 +1,3 @@
-// File: frontend/src/hooks/useTheme.ts
-// Extension: .ts (TypeScript Hook)
-
 import { useState, useEffect, useCallback, useContext, createContext } from 'react';
 import { storageService } from '../services/storage';
 

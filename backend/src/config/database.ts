@@ -1,6 +1,3 @@
-# File: backend/src/config/database.ts
-# Extension: .ts
-
 import { PrismaClient } from '@prisma/client';
 import { MongoClient, Db } from 'mongodb';
 import { logger } from '../utils/logger';

@@ -1,5 +1,3 @@
-// File: frontend/src/components/CodeEditor/AnalysisPanel.tsx
-// Extension: .tsx
 'use client';
 
 import React, { useState } from 'react';

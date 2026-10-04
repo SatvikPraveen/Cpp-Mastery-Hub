@@ -1,6 +1,3 @@
-// File: frontend/src/services/analytics.ts
-// Extension: .ts (TypeScript Service)
-
 import { apiService } from './api';
 import { storageService } from './storage';
 

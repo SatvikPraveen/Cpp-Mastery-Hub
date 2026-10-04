@@ -1,7 +1,3 @@
-// File: backend/src/types/collaboration.ts
-// Extension: .ts
-// Location: backend/src/types/collaboration.ts
-
 export interface Collaboration {
   id: string;
   title: string;

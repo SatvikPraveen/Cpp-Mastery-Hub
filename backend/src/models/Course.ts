@@ -1,6 +1,3 @@
-// File: backend/src/models/Course.ts
-// Extension: .ts (TypeScript Model)
-
 import { z } from 'zod';
 
 // Enums

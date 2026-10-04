@@ -1,7 +1,3 @@
-// File: tests/integration/full-stack.test.ts
-// Extension: .ts
-// Location: tests/integration/full-stack.test.ts
-
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 import axios from 'axios';
 import { exec } from 'child_process';

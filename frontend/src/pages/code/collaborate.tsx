@@ -1,6 +1,3 @@
-// File: frontend/src/pages/code/collaborate.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { Users, Share, Copy, Settings, Video, Mic, MicOff, VideoOff, MessageCircle, UserPlus } from 'lucide-react';

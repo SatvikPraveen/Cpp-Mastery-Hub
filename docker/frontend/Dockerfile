@@ -1,6 +1,3 @@
-# File: docker/frontend/Dockerfile
-# Extension: Dockerfile
-
 # Multi-stage build for production optimization
 FROM node:18-alpine AS base
 

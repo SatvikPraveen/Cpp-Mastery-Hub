@@ -1,6 +1,3 @@
-// File: frontend/src/services/storage.ts
-// Extension: .ts (TypeScript Service)
-
 export interface StorageOptions {
   encrypt?: boolean;
   ttl?: number; // Time to live in milliseconds

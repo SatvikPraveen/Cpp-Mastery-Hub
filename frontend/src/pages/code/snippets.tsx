@@ -1,6 +1,3 @@
-// File: frontend/src/pages/code/snippets.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { Search, Filter, Code, Star, Eye, Download, Trash2, Edit, Plus, Calendar, User } from 'lucide-react';

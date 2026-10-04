@@ -1,7 +1,3 @@
-// File: backend/src/types/code.ts
-// Extension: .ts
-// Location: backend/src/types/code.ts
-
 export interface CodeAnalysisRequest {
   code: string;
   language?: string;

@@ -1,7 +1,3 @@
-// File: frontend/tests/hooks/useAuth.test.ts
-// Extension: .ts
-// Location: frontend/tests/hooks/useAuth.test.ts
-
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useAuth } from '../../src/hooks/useAuth';
 import { api } from '../../src/services/api';

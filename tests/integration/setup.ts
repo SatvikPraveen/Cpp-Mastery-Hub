@@ -1,7 +1,3 @@
-// File: tests/integration/setup.ts
-// Extension: .ts
-// Location: tests/integration/setup.ts
-
 /**
  * C++ Mastery Hub - Integration Tests Setup
  * Comprehensive test environment configuration and utilities

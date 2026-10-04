@@ -1,7 +1,4 @@
 # Contributing to C++ Mastery Hub
-# File: CONTRIBUTING.md
-# Extension: .md
-# Location: CONTRIBUTING.md
 
 Thank you for your interest in contributing to C++ Mastery Hub! We welcome contributions from developers of all skill levels. This document will guide you through the process of contributing to our project.
 

@@ -1,7 +1,3 @@
-// File: backend/src/types/learning.ts
-// Extension: .ts
-// Location: backend/src/types/learning.ts
-
 export interface Course {
   id: string;
   title: string;

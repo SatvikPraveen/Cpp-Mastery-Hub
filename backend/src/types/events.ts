@@ -1,7 +1,3 @@
-// File: backend/src/types/events.ts
-// Extension: .ts
-// Location: backend/src/types/events.ts
-
 export interface EventPayload<T = any> {
   type: string;
   data: T;

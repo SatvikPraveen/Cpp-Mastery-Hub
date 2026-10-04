@@ -1,6 +1,3 @@
-// File: frontend/src/components/Notification/Notification.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React from 'react';
 import { Badge } from '../UI/Badge';
 

@@ -1,6 +1,3 @@
-// File: frontend/src/components/UI/Loading.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React from 'react';
 
 interface LoadingProps {

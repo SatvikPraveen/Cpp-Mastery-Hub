@@ -1,7 +1,3 @@
-// File: backend/src/types/index.ts
-// Extension: .ts
-// Location: backend/src/types/index.ts
-
 /**
  * C++ Mastery Hub - Backend Type Definitions
  * Comprehensive type system for the backend API

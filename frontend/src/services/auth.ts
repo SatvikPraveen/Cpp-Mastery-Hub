@@ -1,6 +1,3 @@
-// File: frontend/src/services/auth.ts
-// Extension: .ts (TypeScript Service)
-
 import { apiService } from './api';
 import { User } from '../types';
 

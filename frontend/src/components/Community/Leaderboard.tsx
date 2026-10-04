@@ -1,6 +1,3 @@
-// File: frontend/src/components/Community/Leaderboard.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useState, useEffect } from 'react';
 import { Badge } from '../UI/Badge';
 import { Loading } from '../UI/Loading';

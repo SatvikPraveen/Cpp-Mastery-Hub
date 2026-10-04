@@ -1,7 +1,3 @@
-# File: backend/Dockerfile
-# Extension: (no extension)
-# Location: backend/Dockerfile
-
 # Multi-stage build for Backend
 FROM node:18-alpine AS base
 

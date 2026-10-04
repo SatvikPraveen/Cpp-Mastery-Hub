@@ -1,6 +1,3 @@
-// File: backend/src/models/User.ts
-// Extension: .ts (TypeScript Model)
-
 import { z } from 'zod';
 
 // Enums

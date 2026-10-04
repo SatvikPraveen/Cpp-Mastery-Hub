@@ -1,6 +1,3 @@
-// File: backend/src/api/routes/auth.ts
-// Extension: .ts
-
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';

@@ -1,6 +1,3 @@
-// File: frontend/src/components/Search/SearchFilters.tsx
-// Extension: .tsx (TypeScript React Component)
-
 import React, { useState, useEffect } from 'react';
 import { Badge } from '../UI/Badge';
 

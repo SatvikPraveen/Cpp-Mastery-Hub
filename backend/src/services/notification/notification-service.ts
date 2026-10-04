@@ -1,7 +1,3 @@
-// File: backend/src/services/notification/notification-service.ts
-// Extension: .ts
-// Location: backend/src/services/notification/notification-service.ts
-
 import { EventEmitter } from 'events';
 import { User } from '../../models/User';
 import { logger } from '../../utils/logger';

@@ -1,7 +1,3 @@
-// File: backend/tests/integration/api.test.ts
-// Extension: .ts
-// Location: backend/tests/integration/api.test.ts
-
 import request from 'supertest';
 import { describe, test, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
 import { app } from '../../src/app';

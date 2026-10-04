@@ -1,4 +1,3 @@
-// File: frontend/src/components/Auth/LoginForm.tsx
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import { Button } from '@/components/UI/Button';
@@ -159,7 +158,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   );
 };
 
-// File: frontend/src/components/Auth/RegisterForm.tsx
 export const RegisterForm: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }) => {
   const [formData, setFormData] = useState({
     firstName: '',

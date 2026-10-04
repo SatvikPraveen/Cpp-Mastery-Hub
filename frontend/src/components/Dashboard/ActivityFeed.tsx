@@ -1,5 +1,3 @@
-// File: frontend/src/components/Dashboard/ActivityFeed.tsx
-// Extension: .tsx
 'use client';
 
 import React, { useState } from 'react';

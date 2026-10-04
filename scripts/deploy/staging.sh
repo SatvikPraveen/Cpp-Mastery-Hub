@@ -1,9 +1,4 @@
 #!/bin/bash
-
-# File: scripts/deploy/staging.sh
-# Extension: .sh
-# Location: scripts/deploy/staging.sh
-
 set -e
 
 echo "🚀 Deploying C++ Mastery Hub to Staging Environment..."
