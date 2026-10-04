@@ -1,90 +1,40 @@
-# Multi-stage build for Backend
-FROM node:18-alpine AS base
+# syntax=docker/dockerfile:1.7
+# Backend API image. Build context: repository root (npm workspaces share one lockfile).
+#   docker build -f backend/Dockerfile -t cppmastery-backend .
 
-# Install dependencies
-FROM base AS deps
-RUN apk add --no-cache libc6-compat python3 make g++
+FROM node:20-alpine AS deps
 WORKDIR /app
+# Workspace binaries (prisma, tsc, tsx) are hoisted to the root node_modules.
+ENV PATH=/app/node_modules/.bin:$PATH
+# Prisma's query and schema engines link against OpenSSL.
+RUN apk add --no-cache openssl
+COPY package.json package-lock.json ./
+COPY backend/package.json backend/
+COPY frontend/package.json frontend/
+RUN npm ci --ignore-scripts --workspace backend --include-workspace-root=false
 
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production && npm cache clean --force
+FROM deps AS build
+COPY backend backend
+WORKDIR /app/backend
+RUN prisma generate && tsc -p tsconfig.json && tsc-alias -p tsconfig.json
 
-# Build stage
-FROM base AS builder
+FROM deps AS prod-deps
+COPY backend/prisma backend/prisma
+RUN npm prune --omit=dev --workspace backend --include-workspace-root=false \
+    && cd backend && prisma generate
+
+FROM node:20-alpine AS runtime
+ENV NODE_ENV=production PATH=/app/node_modules/.bin:$PATH
 WORKDIR /app
-
-# Install all dependencies for building
-COPY package.json package-lock.json* ./
-RUN npm ci
-
-# Copy source code and build
-COPY . .
-RUN npm run build
-
-# Production stage
-FROM base AS production
-WORKDIR /app
-
-ENV NODE_ENV=production
-
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nodejs
-
-# Copy built application
-COPY --from=builder --chown=nodejs:nodejs /app/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nodejs:nodejs /app/package.json ./package.json
-COPY --from=builder --chown=nodejs:nodejs /app/prisma ./prisma
-
-# Create directories with correct permissions
-RUN mkdir -p logs uploads && chown -R nodejs:nodejs logs uploads
-
-USER nodejs
-
+RUN apk add --no-cache dumb-init openssl && addgroup -S app && adduser -S -G app -u 10001 app
+COPY --from=prod-deps --chown=app:app /app/node_modules ./node_modules
+COPY --from=build --chown=app:app /app/backend/dist ./backend/dist
+COPY --chown=app:app backend/prisma ./backend/prisma
+COPY --chown=app:app backend/package.json ./backend/package.json
+USER app
+WORKDIR /app/backend
 EXPOSE 8000
-
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD curl -f http://localhost:8000/health || exit 1
-
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["node", "-e", "fetch('http://127.0.0.1:8000/health').then(r => process.exit(r.status < 500 ? 0 : 1), () => process.exit(1))"]
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/server.js"]
-
-# Development stage
-FROM base AS development
-WORKDIR /app
-
-# Install system dependencies
-RUN apk add --no-cache python3 make g++ curl
-
-# Install all dependencies
-COPY package.json package-lock.json* ./
-RUN npm ci
-
-# Copy source code
-COPY . .
-
-# Generate Prisma client
-RUN npx prisma generate
-
-# Create directories
-RUN mkdir -p logs uploads
-
-EXPOSE 8000
-
-CMD ["npm", "run", "dev"]
-
-# Test stage
-FROM development AS test
-WORKDIR /app
-
-# Install test dependencies
-RUN npm ci
-
-# Copy test files
-COPY . .
-
-# Generate Prisma client for testing
-RUN npx prisma generate
-
-# Run tests
-CMD ["npm", "run", "test:coverage"]

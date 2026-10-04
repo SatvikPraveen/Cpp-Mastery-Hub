@@ -5,7 +5,7 @@ import { config } from '../../config';
 import { sessionService } from '../../services/auth/session-service';
 import { userService } from '../../services/user-service';
 import { sendEmail } from '../../utils/email';
-import { ApiError } from '../../utils/errors';
+import { ApiError, getErrorMessage } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 import { handle, parse, requireUserId } from '../http';
 import { authenticateToken } from '../middleware/auth';
@@ -130,7 +130,7 @@ router.post(
           text: `Use this link within one hour to choose a new password:\n\n${link}\n\nIf you did not ask for this, ignore this email.`,
         });
       } catch (error) {
-        logger.error('Password reset email failed', { userId: reset.user.id, error });
+        logger.error('Password reset email failed', { userId: reset.user.id, error: getErrorMessage(error) });
       }
     }
     // Same response whether or not the account exists, to prevent enumeration.
@@ -195,7 +195,7 @@ async function sendVerificationEmail(user: { id: string; email: string; username
       text: `Hi ${user.username},\n\nConfirm your address within 24 hours:\n\n${link}\n`,
     });
   } catch (error) {
-    logger.error('Verification email failed', { userId: user.id, error });
+    logger.error('Verification email failed', { userId: user.id, error: getErrorMessage(error) });
   }
 }
 

@@ -59,8 +59,9 @@ if (config.NODE_ENV === 'development') {
   );
 } else {
   transports.push(
+    // Structured JSON on stdout: the container runtime collects and rotates it.
     new winston.transports.Console({
-      level: 'warn',
+      level: config.LOG_LEVEL,
       format: winston.format.combine(
         winston.format.timestamp(),
         winston.format.errors({ stack: true }),
@@ -70,8 +71,9 @@ if (config.NODE_ENV === 'development') {
   );
 }
 
-// File transports (skipped under test so the suite never writes to ./logs)
-if (!isTest) {
+// Rotating files under ./logs are opt-in (LOG_TO_FILES=true) for hosts without log collection;
+// containers run with a read-only filesystem and log to stdout only.
+if (!isTest && process.env['LOG_TO_FILES'] === 'true') {
   // All application logs
   transports.push(
     new DailyRotateFile({

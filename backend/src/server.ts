@@ -49,13 +49,17 @@ async function main(): Promise<void> {
   });
 
   await connectDatabase();
-  try {
-    await connectRedis();
-  } catch (error) {
-    // Redis only backs caching and rate limits; the in-memory fallbacks keep the API usable.
-    logger.warn('Redis unavailable, using in-memory cache and rate limits', {
-      error: getErrorMessage(error),
-    });
+  // Redis only backs caching and rate limits; without REDIS_URL the in-memory fallbacks are used.
+  if (process.env['REDIS_URL']) {
+    try {
+      await connectRedis();
+    } catch (error) {
+      logger.warn('Redis unavailable, using in-memory cache and rate limits', {
+        error: getErrorMessage(error),
+      });
+    }
+  } else {
+    logger.info('REDIS_URL not set: using in-memory cache and rate limits (single instance only)');
   }
 
   server.listen(config.PORT, config.HOST, () => {
