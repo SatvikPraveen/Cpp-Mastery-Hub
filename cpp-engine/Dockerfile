@@ -7,7 +7,7 @@
 #   docker run --rm -p 9000:9000 cppmastery-engine                 # HTTP adapter on :9000
 #   echo 'int main(){ return 0; }' | docker run --rm -i cppmastery-engine analyze -   # CLI
 
-FROM debian:bookworm-slim@sha256:3d5df92588469a4c503adbead0e4129ef3f88e223954011c2169073af3412098 AS build
+FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251 AS build
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake ninja-build git ca-certificates python3 \
@@ -22,7 +22,7 @@ RUN cmake -S . -B build -G Ninja \
     && ctest --test-dir build --output-on-failure \
     && python3 eval/run_eval.py --cli build/cppmastery
 
-FROM debian:bookworm-slim@sha256:3d5df92588469a4c503adbead0e4129ef3f88e223954011c2169073af3412098 AS runtime
+FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251 AS runtime
 LABEL org.opencontainers.image.title="cppmastery-engine" \
       org.opencontainers.image.source="https://github.com/SatvikPraveen/Cpp-Mastery-Hub" \
       org.opencontainers.image.licenses="MIT" \

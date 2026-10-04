@@ -269,7 +269,7 @@ Token Lexer::lexQuoted(std::size_t start, char quote, TokenKind kind) {
     while (!atEnd()) {
         const char c = text_[pos_];
         if (c == '\\') {
-            pos_ += (pos_ + 1 < text_.size()) ? 2 : 1;
+            pos_ += (pos_ + 1 < text_.size()) ? std::size_t{2} : std::size_t{1};
             continue;
         }
         if (c == '\n') {
