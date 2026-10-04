@@ -1,0 +1,81 @@
+{
+  "version": "cppmastery 2.0.0 (f3f32c26cea7)",
+  "recall": 1.0,
+  "expected": 21,
+  "missing": 0,
+  "unexpected_on_clean": 0,
+  "layout_problems": [],
+  "files": [
+    {
+      "path": "clean/raii_vector.cpp",
+      "expected": {},
+      "observed": {},
+      "elapsed_us": 151
+    },
+    {
+      "path": "smells/complex_switch.cpp",
+      "expected": {
+        "complexity/high-cyclomatic": 1,
+        "complexity/deep-nesting": 1,
+        "readability/goto": 1,
+        "correctness/assignment-in-condition": 1,
+        "correctness/empty-catch": 1,
+        "modernize/c-style-cast": 1
+      },
+      "observed": {
+        "complexity/deep-nesting": 1,
+        "complexity/high-cyclomatic": 1,
+        "correctness/assignment-in-condition": 1,
+        "readability/magic-number": 13,
+        "correctness/empty-catch": 1,
+        "correctness/float-equality": 1,
+        "readability/goto": 1,
+        "modernize/c-style-cast": 2
+      },
+      "elapsed_us": 74
+    },
+    {
+      "path": "smells/legacy_c_style.cpp",
+      "expected": {
+        "modernize/macro-constant": 1,
+        "modernize/typedef": 1,
+        "memory/malloc-free": 2,
+        "modernize/c-random": 1,
+        "security/shell-command": 1,
+        "portability/bits-stdc++": 1,
+        "correctness/float-equality": 1
+      },
+      "observed": {
+        "portability/bits-stdc++": 1,
+        "modernize/macro-constant": 2,
+        "modernize/typedef": 1,
+        "modernize/c-style-cast": 1,
+        "memory/malloc-free": 2,
+        "modernize/c-random": 1,
+        "readability/magic-number": 3,
+        "correctness/float-equality": 1,
+        "security/shell-command": 1
+      },
+      "elapsed_us": 38
+    },
+    {
+      "path": "smells/unsafe_strcpy.cpp",
+      "expected": {
+        "security/unsafe-c-function": 2,
+        "memory/raw-new-delete": 2,
+        "readability/using-namespace-std": 1,
+        "modernize/null-macro": 1,
+        "performance/endl": 1
+      },
+      "observed": {
+        "readability/using-namespace-std": 1,
+        "memory/raw-new-delete": 2,
+        "security/unsafe-c-function": 2,
+        "modernize/null-macro": 1,
+        "performance/endl": 1
+      },
+      "elapsed_us": 47
+    }
+  ],
+  "elapsed_s": 6.85
+}
