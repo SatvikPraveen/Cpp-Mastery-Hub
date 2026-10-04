@@ -2,7 +2,7 @@
 # Backend API image. Build context: repository root (npm workspaces share one lockfile).
 #   docker build -f backend/Dockerfile -t cppmastery-backend .
 
-FROM node:20-alpine AS deps
+FROM node:26-alpine AS deps
 WORKDIR /app
 # Workspace binaries (prisma, tsc, tsx) are hoisted to the root node_modules.
 ENV PATH=/app/node_modules/.bin:$PATH
@@ -23,7 +23,7 @@ COPY backend/prisma backend/prisma
 RUN npm prune --omit=dev --workspace backend --include-workspace-root=false \
     && cd backend && prisma generate
 
-FROM node:20-alpine AS runtime
+FROM node:26-alpine AS runtime
 ENV NODE_ENV=production PATH=/app/node_modules/.bin:$PATH
 WORKDIR /app
 RUN apk add --no-cache dumb-init openssl && addgroup -S app && adduser -S -G app -u 10001 app
