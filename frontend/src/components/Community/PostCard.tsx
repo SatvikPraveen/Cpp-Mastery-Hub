@@ -1,5 +1,5 @@
 import { formatDistanceToNow } from 'date-fns';
-import { CheckCircle, Eye, Heart, MessageSquare, Pin, TrendingUp } from 'lucide-react';
+import { Eye, Heart, MessageSquare, Pin, TrendingUp } from 'lucide-react';
 import React from 'react';
 
 import TagList from '@/components/Common/TagList';
@@ -34,9 +34,9 @@ export const PostCard: React.FC<PostCardProps> = ({
 }) => {
   const pinned = isPinned ?? post.isPinned;
   const authorName = getAuthorName(post);
-  const replies = post.repliesCount ?? post.commentCount ?? post.comments?.length ?? 0;
-  const views = post.viewsCount ?? post.viewCount;
-  const score = post.upvotes ?? post.voteScore;
+  const replies =(post._count?.comments ?? 0);
+  const views = post.views;
+  const score =post.likes;
 
   return (
     <article
@@ -56,7 +56,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           aria-label={`View ${authorName}'s profile`}
           className="flex-shrink-0 rounded-full disabled:cursor-default"
         >
-          <UserAvatar user={post.author ?? post.user} size="md" />
+          <UserAvatar user={post.user ?? post.user} size="md" />
         </button>
 
         <div className="flex-1 min-w-0">
@@ -66,12 +66,6 @@ export const PostCard: React.FC<PostCardProps> = ({
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
                 <TrendingUp className="h-3 w-3 mr-1" />
                 Trending
-              </span>
-            )}
-            {post.isSolved && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                <CheckCircle className="h-3 w-3 mr-1" />
-                Solved
               </span>
             )}
           </div>

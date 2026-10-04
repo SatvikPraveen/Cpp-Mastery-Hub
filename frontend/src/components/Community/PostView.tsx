@@ -113,7 +113,7 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
     );
   }
 
-  const isAuthor = user?.id === (post.author?.id ?? post.userId);
+  const isAuthor = user?.id === (post.user.id ?? post.userId);
   const authorName = getAuthorName(post);
 
   return (
@@ -135,7 +135,7 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
               </Button>
               
               <span className="text-sm font-medium">
-                {(post.upvotes ?? 0) - (post.downvotes ?? 0) || post.voteScore}
+                {post.likes}
               </span>
               
               <Button
@@ -159,7 +159,7 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
                   
                   <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                     <div className="flex items-center space-x-2">
-                      <UserAvatar user={post.author ?? post.user} size="sm" />
+                      <UserAvatar user={post.user ?? post.user} size="sm" />
                       <span>{authorName}</span>
                     </div>
                     
@@ -170,7 +170,7 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
                     
                     <div className="flex items-center space-x-1">
                       <Eye className="h-4 w-4" />
-                      <span>{post.viewsCount ?? post.viewCount} views</span>
+                      <span>{post.views} views</span>
                     </div>
                   </div>
                 </div>

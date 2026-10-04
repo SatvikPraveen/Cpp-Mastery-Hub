@@ -34,12 +34,35 @@ interface DashboardStats {
 
 type RecentActivity = ActivityItem;
 
+/** GET /api/learning/recommendations item (backend/src/services/learning/recommendations.ts). */
 interface CourseRecommendation {
-  _id: string;
+  courseId: string;
   title: string;
-  description: string;
   difficulty: string;
-  estimatedHours: number;
+  reason: string;
+}
+
+/** GET /api/users/me/activity row (Prisma UserActivity). */
+interface ActivityRow {
+  id: string;
+  action: string;
+  resource: string | null;
+  occurredAt: string;
+}
+
+const ACTIVITY_TYPES: ReadonlySet<string> = new Set([
+  'lesson_completed',
+  'exercise_completed',
+  'achievement_unlocked',
+  'code_shared',
+  'comment_posted',
+  'code_liked',
+]);
+
+function toActivityItem(row: ActivityRow): ActivityItem {
+  const type = ACTIVITY_TYPES.has(row.action) ? (row.action as ActivityItem['type']) : 'activity';
+  const title = row.action.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+  return { id: row.id, type, title, description: row.resource ?? '', timestamp: row.occurredAt, icon: '', color: '' };
 }
 
 interface LearningProgress {
@@ -48,7 +71,6 @@ interface LearningProgress {
   progressPercentage: number;
   lastAccessedAt: string;
   nextLessonTitle: string;
-  estimatedTimeToComplete: number;
 }
 
 interface UserPayload {
@@ -66,13 +88,14 @@ interface UserPayload {
   };
 }
 
+/** GET /api/learning/progress (LearningService.progressOverview). */
 interface ProgressPayload {
-  progress?: Array<{
-    courseId: { _id: string; title: string };
-    progressPercentage: number;
+  progress: Array<{
+    courseId: string;
+    courseTitle: string;
+    progress: number;
     lastAccessedAt: string;
-    nextLessonTitle?: string;
-    estimatedTimeToComplete?: number;
+    nextLesson: { id: string; title: string } | null;
   }>;
 }
 
@@ -81,7 +104,7 @@ interface RecommendationsPayload {
 }
 
 interface ActivityPayload {
-  activities?: RecentActivity[];
+  activities?: ActivityRow[];
 }
 
 export const Dashboard: React.FC = () => {
@@ -131,18 +154,17 @@ export const Dashboard: React.FC = () => {
       setStats(dashboardStats);
       
       // Process learning progress
-      const progress = progressResponse.data.progress?.map((p) => ({
-        courseId: p.courseId._id,
-        courseTitle: p.courseId.title,
-        progressPercentage: p.progressPercentage,
+      const progress = progressResponse.data.progress.map((p) => ({
+        courseId: p.courseId,
+        courseTitle: p.courseTitle,
+        progressPercentage: p.progress,
         lastAccessedAt: p.lastAccessedAt,
-        nextLessonTitle: p.nextLessonTitle || 'Continue Learning',
-        estimatedTimeToComplete: p.estimatedTimeToComplete || 0
-      })) || [];
+        nextLessonTitle: p.nextLesson?.title ?? 'Course complete',
+      }));
 
       setLearningProgress(progress);
       setRecommendations(recommendationsResponse.data.recommendations || []);
-      setRecentActivity(activityResponse.data.activities || []);
+      setRecentActivity((activityResponse.data.activities ?? []).map(toActivityItem));
 
     } catch (err: any) {
       console.error('Failed to load dashboard data:', err);
@@ -457,22 +479,19 @@ export const Dashboard: React.FC = () => {
                 <div className="space-y-4">
                   {recommendations.slice(0, 2).map((course) => (
                     <div
-                      key={course._id}
+                      key={course.courseId}
                       className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors cursor-pointer"
-                      onClick={() => window.location.href = `/learn/${course._id}`}
+                      onClick={() => window.location.href = `/learn/${course.courseId}`}
                     >
                       <h3 className="font-medium text-gray-900 mb-1">
                         {course.title}
                       </h3>
                       <p className="text-sm text-gray-600 mb-2">
-                        {course.description}
+                        {course.reason}
                       </p>
                       <div className="flex items-center justify-between text-xs">
                         <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded">
                           {course.difficulty}
-                        </span>
-                        <span className="text-gray-500">
-                          {course.estimatedHours}h
                         </span>
                       </div>
                     </div>

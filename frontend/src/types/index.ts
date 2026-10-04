@@ -1,28 +1,38 @@
 // User and Authentication Types
+/**
+ * The signed-in user as returned by the API (backend `SafeUser`: the Prisma User row without
+ * the password hash). Keep in step with backend/prisma/schema.prisma.
+ */
 export interface User {
   id: string;
   email: string;
   username: string;
-  name: string;
-  avatar?: string;
-  bio?: string;
-  location?: string;
-  website?: string;
-  githubUsername?: string;
-  linkedinUsername?: string;
+  firstName: string | null;
+  lastName: string | null;
+  bio: string | null;
+  avatarUrl: string | null;
+  website: string | null;
+  location: string | null;
+  skills: string[];
+  role: UserRole;
   isActive: boolean;
+  isVerified: boolean;
+  emailVerifiedAt: string | null;
+  lastActiveAt: string | null;
+  joinedAt: string;
   createdAt: string;
   updatedAt: string;
-  lastLoginAt?: string;
-  profile?: UserProfile;
-  progress?: number; // Overall progress percentage
-  // Optional display / authorization metadata used by layouts and auth helpers
-  firstName?: string;
-  lastName?: string;
-  avatarUrl?: string;
-  role?: UserRole;
-  isEmailVerified?: boolean;
 }
+
+/** Author fields the API embeds in posts, comments and snippets. */
+export type AuthorSummary = Pick<User, 'id' | 'username' | 'avatarUrl'> &
+  Partial<Pick<User, 'firstName' | 'lastName'>>;
+
+/** Public profile of another user (no email or account state). */
+export type PublicUser = Pick<
+  User,
+  'id' | 'username' | 'firstName' | 'lastName' | 'bio' | 'avatarUrl' | 'website' | 'location' | 'skills' | 'role' | 'joinedAt'
+>;
 
 export interface UserProfile {
   id: string;
@@ -63,7 +73,7 @@ export interface RegisterData {
   acceptTerms: boolean;
 }
 
-export type UserRole = 'USER' | 'INSTRUCTOR' | 'MODERATOR' | 'ADMIN';
+export type UserRole = 'USER' | 'MODERATOR' | 'ADMIN' | 'SUPER_ADMIN';
 
 // Learning Content Types
 export interface CourseInstructor {
@@ -212,7 +222,7 @@ export interface CodeSnippet {
   executionCount: number;
   createdAt: string;
   updatedAt: string;
-  author?: Pick<User, 'id' | 'username' | 'name' | 'avatar'>;
+  author?: AuthorSummary;
   likes?: number;
   category?: string;
 }
@@ -330,63 +340,50 @@ export interface Register {
 }
 
 // Community and Forum Types
+/** Forum types mirror the backend responses (backend/src/api/routes/community.ts). */
 export interface ForumCategory {
   id: string;
   name: string;
-  description: string;
-  color: string;
-  icon?: string;
-  order: number;
+  description: string | null;
+  color: string | null;
+  icon: string | null;
+  orderIndex: number;
   isActive: boolean;
-  postCount?: number;
-  isLocked?: boolean;
-  postsCount?: number;
-  membersCount?: number;
-  latestPost?: Pick<ForumPost, 'id' | 'title' | 'createdAt'> & { author?: string };
-  recentActivity?: string;
+  createdAt: string;
+  _count?: { posts: number };
 }
+
+export type PostStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'DELETED' | 'HIDDEN';
 
 export interface ForumPost {
   id: string;
   userId: string;
-  user: User;
-  categoryId: string;
-  category: ForumCategory;
+  user: AuthorSummary;
+  categoryId: string | null;
+  category?: ForumCategory | null;
   title: string;
   content: string;
-  slug: string;
   tags: string[];
-  isPublished: boolean;
+  views: number;
+  likes: number;
   isPinned: boolean;
   isLocked: boolean;
-  viewCount: number;
-  voteScore: number;
+  status: PostStatus;
   createdAt: string;
   updatedAt: string;
-  comments: ForumComment[];
-  commentCount?: number;
-  author?: Pick<User, 'id' | 'username' | 'name' | 'avatar'> & { reputation?: number };
-  upvotes?: number;
-  downvotes?: number;
-  repliesCount?: number;
-  viewsCount?: number;
-  isSolved?: boolean;
-  lastReply?: { author: string; createdAt: string };
+  _count?: { comments: number };
 }
 
 export interface ForumComment {
   id: string;
   userId: string;
-  user: User;
+  user: AuthorSummary;
   postId: string;
-  parentId?: string;
+  parentId: string | null;
   content: string;
-  isEdited: boolean;
-  editedAt?: string;
+  likes: number;
   createdAt: string;
   updatedAt: string;
-  replies: ForumComment[];
-  voteScore: number;
 }
 
 export interface Vote {
@@ -747,7 +744,7 @@ export interface ChatMessage {
 
 // --- Community types ---
 export interface LeaderboardEntry {
-  user: Pick<User, 'id' | 'username' | 'avatar'>;
+  user: AuthorSummary;
   points: number;
   rank?: number;
 }

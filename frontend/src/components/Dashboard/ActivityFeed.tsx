@@ -19,7 +19,14 @@ import React, { useState } from 'react';
 
 export interface ActivityItem {
   id: string;
-  type: 'lesson_completed' | 'exercise_completed' | 'achievement_unlocked' | 'code_shared' | 'comment_posted' | 'code_liked';
+  type:
+    | 'lesson_completed'
+    | 'exercise_completed'
+    | 'achievement_unlocked'
+    | 'code_shared'
+    | 'comment_posted'
+    | 'code_liked'
+    | 'activity';
   title: string;
   description: string;
   timestamp: string;

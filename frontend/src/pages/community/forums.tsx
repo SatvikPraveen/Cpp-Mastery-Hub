@@ -273,7 +273,7 @@ const ForumPage: React.FC<ForumPageProps> = () => {
                           )}
                         </div>
                       </div>
-                      <span className={`px-2 py-1 text-xs rounded-full ${getCategoryColor(category.color)}`}>
+                      <span className={`px-2 py-1 text-xs rounded-full ${getCategoryColor(category.color ?? 'gray')}`}>
                         {category.postCount}
                       </span>
                     </div>

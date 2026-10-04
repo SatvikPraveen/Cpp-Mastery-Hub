@@ -1,12 +1,10 @@
 import { 
   MessageCircle, 
-  Users, 
   Plus, 
   Search, 
   TrendingUp,
   Clock,
-  Pin,
-  Lock
+  Pin
 } from 'lucide-react';
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
@@ -101,9 +99,6 @@ export const ForumList: React.FC<ForumListProps> = ({ categoryId }) => {
                       {category.name}
                     </h3>
                   </div>
-                  {category.isLocked && (
-                    <Lock className="h-4 w-4 text-muted-foreground" />
-                  )}
                 </div>
                 
                 <p className="text-sm text-muted-foreground mb-3">
@@ -114,19 +109,10 @@ export const ForumList: React.FC<ForumListProps> = ({ categoryId }) => {
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center space-x-1">
                       <MessageCircle className="h-4 w-4" />
-                      <span>{category.postsCount} posts</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Users className="h-4 w-4" />
-                      <span>{category.membersCount} members</span>
+                      <span>{category._count?.posts ?? 0} posts</span>
                     </div>
                   </div>
                   
-                  {category.latestPost && (
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(category.latestPost.createdAt).toLocaleDateString()}
-                    </div>
-                  )}
                 </div>
               </div>
             </Link>
@@ -196,22 +182,15 @@ export const ForumList: React.FC<ForumListProps> = ({ categoryId }) => {
                         </div>
                         <div className="flex items-center space-x-1">
                           <MessageCircle className="h-3 w-3" />
-                          <span>{post.repliesCount ?? post.commentCount ?? 0} replies</span>
+                          <span>{(post._count?.comments ?? 0)} replies</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <TrendingUp className="h-3 w-3" />
-                          <span>{post.viewsCount ?? post.viewCount} views</span>
+                          <span>{post.views} views</span>
                         </div>
                       </div>
                     </div>
                     
-                    {post.lastReply && (
-                      <div className="text-xs text-muted-foreground text-right">
-                        <div>Last reply by</div>
-                        <div className="font-medium">{post.lastReply.author}</div>
-                        <div>{new Date(post.lastReply.createdAt).toLocaleDateString()}</div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>

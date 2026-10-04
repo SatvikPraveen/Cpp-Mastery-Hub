@@ -40,7 +40,8 @@ interface ApiError {
 
 // Configuration
 const API_CONFIG = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api',
+  // NEXT_PUBLIC_API_URL is the backend origin (e.g. http://localhost:8000); routes live under /api.
+  baseURL: `${(process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000').replace(/\/+$/, '')}/api`,
   timeout: 30000,
   retryAttempts: 3,
   retryDelay: 1000,
@@ -279,460 +280,176 @@ class ApiService {
 // Create singleton instance
 const apiService = new ApiService();
 
-// Auth service
+/*
+ * Typed endpoint groups. Every path below exists in the backend (backend/src/app.ts mounts the
+ * routers); keep the two in step. Responses use the envelope { success, data, message }.
+ */
+
+export interface Page<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+// Auth (session handling lives in services/auth.ts, which wraps these calls)
 export const authService = {
-  async login(credentials: { email: string; password: string; rememberMe?: boolean }) {
-    return apiService.post('/auth/login', credentials);
-  },
-
-  async register(userData: { username: string; email: string; password: string }) {
-    return apiService.post('/auth/register', userData);
-  },
-
-  async logout() {
+  login: (credentials: { email: string; password: string; rememberMe?: boolean }) =>
+    apiService.post('/auth/login', credentials),
+  register: (data: { username: string; email: string; password: string; firstName?: string; lastName?: string }) =>
+    apiService.post('/auth/register', data),
+  logout: async () => {
     const response = await apiService.post('/auth/logout');
     apiService.clearAuth();
     return response;
   },
-
-  async forgotPassword(data: { email: string }) {
-    return apiService.post('/auth/forgot-password', data);
-  },
-
-  async resetPassword(data: { token: string; password: string }) {
-    return apiService.post('/auth/reset-password', data);
-  },
-
-  async verifyEmail(token: string) {
-    return apiService.post('/auth/verify-email', { token });
-  },
-
-  async resendVerification(email: string) {
-    return apiService.post('/auth/resend-verification', { email });
-  },
-
-  async refreshToken(refreshToken: string) {
-    return apiService.post('/auth/refresh', { refreshToken });
-  },
-
-  async changePassword(data: { currentPassword: string; newPassword: string }) {
-    return apiService.post('/auth/change-password', data);
-  },
+  logoutEverywhere: () => apiService.post('/auth/logout-all'),
+  forgotPassword: (data: { email: string }) => apiService.post('/auth/forgot-password', data),
+  resetPassword: (data: { token: string; password: string }) => apiService.post('/auth/reset-password', data),
+  verifyEmail: (token: string) => apiService.post('/auth/verify-email', { token }),
+  resendVerification: () => apiService.post('/auth/resend-verification'),
+  refreshToken: (refreshToken: string) => apiService.post('/auth/refresh', { refreshToken }),
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    apiService.post('/auth/change-password', data),
 };
 
-// User service
+// Users
 export const userService = {
-  async getProfile() {
-    return apiService.get('/users/profile');
-  },
-
-  async updateProfile(data: unknown) {
-    return apiService.patch('/users/profile', data);
-  },
-
-  async uploadAvatar(file: File, onProgress?: (progress: number) => void) {
-    return apiService.upload('/users/avatar', file, onProgress);
-  },
-
-  async getUsers(params?: QueryParams) {
-    return apiService.get('/users', { params });
-  },
-
-  async getUser(userId: string) {
-    return apiService.get(`/users/${userId}`);
-  },
-
-  async deleteAccount(password: string) {
-    return apiService.delete('/users/account', { data: { password } });
-  },
-
-  async getStats() {
-    return apiService.get('/users/stats');
-  },
-
-  async getLeaderboard(type = 'points', limit = 10) {
-    return apiService.get('/users/leaderboard', { params: { type, limit } });
-  },
+  getProfile: () => apiService.get('/users/me'),
+  updateProfile: (data: Record<string, unknown>) => apiService.patch('/users/me', data),
+  getActivity: (limit = 20) => apiService.get('/users/me/activity', { params: { limit } }),
+  getSettings: () => apiService.get('/users/me/settings'),
+  updatePreferences: (settings: Record<string, unknown>) => apiService.patch('/users/me/settings', settings),
+  searchUsers: (q: string, params?: QueryParams) => apiService.get('/users', { params: { q, ...params } }),
+  getUser: (userId: string) => apiService.get(`/users/${userId}`),
+  getUserSnippets: (userId: string, params?: QueryParams) => apiService.get(`/users/${userId}/snippets`, { params }),
+  deleteAccount: (password: string, reason?: string) =>
+    apiService.delete('/users/me', { data: { password, reason } }),
 };
 
-// Course service
+// Learning
 export const courseService = {
-  async getAllCourses(params?: QueryParams) {
-    return apiService.get('/courses', { params });
-  },
-
-  async getCourse(courseId: string) {
-    return apiService.get(`/courses/${courseId}`);
-  },
-
-  async getCourseLessons(courseId: string) {
-    return apiService.get(`/courses/${courseId}/lessons`);
-  },
-
-  async getLesson(courseId: string, lessonId: string) {
-    return apiService.get(`/courses/${courseId}/lessons/${lessonId}`);
-  },
-
-  async getLessonContent(courseId: string, lessonId: string) {
-    return apiService.get(`/courses/${courseId}/lessons/${lessonId}/content`);
-  },
-
-  async getLessonQuiz(courseId: string, lessonId: string) {
-    return apiService.get(`/courses/${courseId}/lessons/${lessonId}/quiz`);
-  },
-
-  async enrollInCourse(courseId: string) {
-    return apiService.post(`/courses/${courseId}/enroll`);
-  },
-
-  async getUserProgress() {
-    return apiService.get('/courses/progress');
-  },
-
-  async getUserCourseProgress(courseId: string) {
-    return apiService.get(`/courses/${courseId}/progress`);
-  },
-
-  async markLessonComplete(courseId: string, lessonId: string) {
-    return apiService.post(`/courses/${courseId}/lessons/${lessonId}/complete`);
-  },
-
-  async saveLessonCode(courseId: string, lessonId: string, code: string) {
-    return apiService.post(`/courses/${courseId}/lessons/${lessonId}/code`, { code });
-  },
-
-  async getUserLessonCode(courseId: string, lessonId: string) {
-    return apiService.get(`/courses/${courseId}/lessons/${lessonId}/code`);
-  },
-
-  async executeCode(data: { code: string; language: string; input?: string }) {
-    return apiService.post('/code/execute', data);
-  },
-
-  async getCoursePrerequisites(courseId: string) {
-    return apiService.get(`/courses/${courseId}/prerequisites`);
-  },
-
-  async submitQuiz(courseId: string, lessonId: string, answers: unknown[]) {
-    return apiService.post(`/courses/${courseId}/lessons/${lessonId}/quiz/submit`, { answers });
-  },
+  getAllCourses: (params?: QueryParams) => apiService.get('/learning/courses', { params }),
+  getCourse: (courseId: string) => apiService.get(`/learning/courses/${courseId}`),
+  getCoursePrerequisites: (courseId: string) => apiService.get(`/learning/courses/${courseId}/prerequisites`),
+  getLesson: (courseId: string, lessonId: string) =>
+    apiService.get(`/learning/courses/${courseId}/lessons/${lessonId}`),
+  getLessonQuiz: (courseId: string, lessonId: string) =>
+    apiService.get(`/learning/courses/${courseId}/lessons/${lessonId}/quiz`),
+  submitQuiz: (courseId: string, lessonId: string, answers: Record<string, number>, timeSpentSeconds = 0) =>
+    apiService.post(`/learning/courses/${courseId}/lessons/${lessonId}/quiz/submit`, { answers, timeSpentSeconds }),
+  enrollInCourse: (courseId: string) => apiService.post(`/learning/courses/${courseId}/enroll`),
+  getUserProgress: () => apiService.get('/learning/progress'),
+  getUserCourseProgress: (courseId: string) => apiService.get(`/learning/courses/${courseId}/progress`),
+  markLessonComplete: (courseId: string, lessonId: string, minutesSpent = 0) =>
+    apiService.post(`/learning/courses/${courseId}/lessons/${lessonId}/complete`, { minutesSpent }),
+  getRecommendations: (limit = 5) => apiService.get('/learning/recommendations', { params: { limit } }),
+  submitExercise: (exerciseId: string, code: string) =>
+    apiService.post(`/learning/exercises/${exerciseId}/submissions`, { code }),
 };
 
-// Code service
+// Code editor: snippets, engine-backed analysis, templates
 export const codeService = {
-  async executeCode(data: { code: string; language: string; input?: string }) {
-    return apiService.post('/code/execute', data);
-  },
-
-  async saveSnippet(data: {
-    title: string;
-    code: string;
-    language: string;
-    description?: string;
-    isPublic?: boolean;
-  }) {
-    return apiService.post('/code/snippets', data);
-  },
-
-  async getSnippets(params?: QueryParams) {
-    return apiService.get('/code/snippets', { params });
-  },
-
-  async getUserSnippets() {
-    return apiService.get('/code/snippets/mine');
-  },
-
-  async getSnippet(snippetId: string) {
-    return apiService.get(`/code/snippets/${snippetId}`);
-  },
-
-  async updateSnippet(snippetId: string, data: unknown) {
-    return apiService.patch(`/code/snippets/${snippetId}`, data);
-  },
-
-  async deleteSnippet(snippetId: string) {
-    return apiService.delete(`/code/snippets/${snippetId}`);
-  },
-
-  async getRecentSnippets() {
-    return apiService.get('/code/snippets/recent');
-  },
-
-  async getPopularSnippets() {
-    return apiService.get('/code/snippets/popular');
-  },
-
-  async shareCode(data: { code: string; language: string }) {
-    return apiService.post('/code/share', data);
-  },
-
-  async getSharedCode(shareId: string) {
-    return apiService.get(`/code/shared/${shareId}`);
-  },
-
-  async likeSnippet(snippetId: string) {
-    return apiService.post(`/code/snippets/${snippetId}/like`);
-  },
-
-  async unlikeSnippet(snippetId: string) {
-    return apiService.delete(`/code/snippets/${snippetId}/like`);
-  },
+  /** Answers 501 until sandboxed execution exists; see docs/research/threat-model.md. */
+  executeCode: (data: { code: string; language: string; input?: string }) => apiService.post('/code/execute', data),
+  analyzeCode: (code: string) => apiService.post('/code/analyze', { code }),
+  visualizeLayout: (code: string, abi: 'lp64' | 'llp64' | 'ilp32' = 'lp64') =>
+    apiService.post('/code/visualize', { code, abi }),
+  getTemplates: (difficulty?: 'beginner' | 'intermediate' | 'advanced') =>
+    apiService.get('/code/templates', { params: difficulty ? { difficulty } : {} }),
+  saveSnippet: (data: { title: string; code: string; language: string; description?: string; tags?: string[]; isPublic?: boolean }) =>
+    apiService.post('/code/snippets', data),
+  getPublicSnippets: (params?: QueryParams) => apiService.get('/code/snippets', { params }),
+  getUserSnippets: (params?: QueryParams) => apiService.get('/code/snippets/mine', { params }),
+  getSnippet: (snippetId: string) => apiService.get(`/code/snippets/${snippetId}`),
+  updateSnippet: (snippetId: string, data: Record<string, unknown>) =>
+    apiService.patch(`/code/snippets/${snippetId}`, data),
+  deleteSnippet: (snippetId: string) => apiService.delete(`/code/snippets/${snippetId}`),
+  getRecentSnippets: () => apiService.get('/code/snippets/recent'),
+  getPopularSnippets: () => apiService.get('/code/snippets/popular'),
+  likeSnippet: (snippetId: string) => apiService.post(`/code/snippets/${snippetId}/like`),
+  unlikeSnippet: (snippetId: string) => apiService.delete(`/code/snippets/${snippetId}/like`),
 };
 
-// Community service
+// Static analysis (cppmastery engine)
+export const analysisService = {
+  analyze: (
+    code: string,
+    options?: { maxCyclomatic?: number; maxNesting?: number; maxFunctionLines?: number; disable?: string[] }
+  ) => apiService.post('/analysis/analyze', options ? { code, options } : { code }),
+  metrics: (code: string) => apiService.post('/analysis/metrics', { code }),
+  layout: (code: string, abi: 'lp64' | 'llp64' | 'ilp32' = 'lp64', pack?: 1 | 2 | 4 | 8 | 16) =>
+    apiService.post('/analysis/layout', pack === undefined ? { code, abi } : { code, abi, pack }),
+  rules: () => apiService.get('/analysis/rules'),
+};
+
+// Community forum
 export const communityService = {
-  async getPosts(params?: QueryParams) {
-    return apiService.get('/community/posts', { params });
-  },
-
-  async getPost(postId: string) {
-    return apiService.get(`/community/posts/${postId}`);
-  },
-
-  async createPost(data: { title: string; content: string; category: string; tags?: string[] }) {
-    return apiService.post('/community/posts', data);
-  },
-
-  async updatePost(postId: string, data: unknown) {
-    return apiService.patch(`/community/posts/${postId}`, data);
-  },
-
-  async deletePost(postId: string) {
-    return apiService.delete(`/community/posts/${postId}`);
-  },
-
-  async likePost(postId: string) {
-    return apiService.post(`/community/posts/${postId}/like`);
-  },
-
-  async unlikePost(postId: string) {
-    return apiService.delete(`/community/posts/${postId}/like`);
-  },
-
-  async getComments(postId: string) {
-    return apiService.get(`/community/posts/${postId}/comments`);
-  },
-
-  async createComment(postId: string, content: string, parentId?: string) {
-    return apiService.post(`/community/posts/${postId}/comments`, { content, parentId });
-  },
-
-  async updateComment(postId: string, commentId: string, content: string) {
-    return apiService.patch(`/community/posts/${postId}/comments/${commentId}`, { content });
-  },
-
-  async deleteComment(postId: string, commentId: string) {
-    return apiService.delete(`/community/posts/${postId}/comments/${commentId}`);
-  },
-
-  async getTrendingPosts() {
-    return apiService.get('/community/posts/trending');
-  },
-
-  async getLeaderboard() {
-    return apiService.get('/community/leaderboard');
-  },
-
-  async followUser(userId: string) {
-    return apiService.post(`/community/users/${userId}/follow`);
-  },
-
-  async unfollowUser(userId: string) {
-    return apiService.delete(`/community/users/${userId}/follow`);
-  },
-
-  async reportPost(postId: string, reason: string) {
-    return apiService.post(`/community/posts/${postId}/report`, { reason });
-  },
+  getCategories: () => apiService.get('/community/categories'),
+  getPosts: (params?: QueryParams) => apiService.get('/community/posts', { params }),
+  getPost: (postId: string) => apiService.get(`/community/posts/${postId}`),
+  createPost: (data: { title: string; content: string; categoryId?: string; tags?: string[] }) =>
+    apiService.post('/community/posts', data),
+  updatePost: (postId: string, data: { title?: string; content?: string; tags?: string[] }) =>
+    apiService.patch(`/community/posts/${postId}`, data),
+  deletePost: (postId: string) => apiService.delete(`/community/posts/${postId}`),
+  likePost: (postId: string) => apiService.post(`/community/posts/${postId}/like`),
+  unlikePost: (postId: string) => apiService.delete(`/community/posts/${postId}/like`),
+  getComments: (postId: string) => apiService.get(`/community/posts/${postId}/comments`),
+  createComment: (postId: string, content: string, parentId?: string) =>
+    apiService.post(`/community/posts/${postId}/comments`, parentId ? { content, parentId } : { content }),
+  updateComment: (postId: string, commentId: string, content: string) =>
+    apiService.patch(`/community/posts/${postId}/comments/${commentId}`, { content }),
+  deleteComment: (postId: string, commentId: string) =>
+    apiService.delete(`/community/posts/${postId}/comments/${commentId}`),
+  getTrendingPosts: () => apiService.get('/community/posts/trending'),
+  getLeaderboard: () => apiService.get('/community/leaderboard'),
+  reportPost: (postId: string, reason: string) =>
+    apiService.post(`/community/posts/${postId}/report`, { reason }),
 };
 
-// Collaboration service
+/**
+ * Real-time collaboration. EXPERIMENTAL: the backend does not implement collaboration sessions
+ * yet, so the page that uses this is disabled unless NEXT_PUBLIC_ENABLE_COLLABORATION=true.
+ */
 export const collaborationService = {
-  async createSession(data: { title: string; code: string; language: string; isPublic?: boolean }) {
-    return apiService.post('/collaboration/sessions', data);
-  },
-
-  async getSession(sessionId: string) {
-    return apiService.get(`/collaboration/sessions/${sessionId}`);
-  },
-
-  async getSessions(params?: QueryParams) {
-    return apiService.get('/collaboration/sessions', { params });
-  },
-
-  async updateSession(sessionId: string, data: unknown) {
-    return apiService.patch(`/collaboration/sessions/${sessionId}`, data);
-  },
-
-  async deleteSession(sessionId: string) {
-    return apiService.delete(`/collaboration/sessions/${sessionId}`);
-  },
-
-  async joinSession(sessionId: string) {
-    return apiService.post(`/collaboration/sessions/${sessionId}/join`);
-  },
-
-  async leaveSession(sessionId: string) {
-    return apiService.post(`/collaboration/sessions/${sessionId}/leave`);
-  },
-
-  async inviteUser(sessionId: string, email: string) {
-    return apiService.post(`/collaboration/sessions/${sessionId}/invite`, { email });
-  },
-
-  async kickUser(sessionId: string, userId: string) {
-    return apiService.post(`/collaboration/sessions/${sessionId}/kick`, { userId });
-  },
+  createSession: (data: Record<string, unknown>) => apiService.post('/collaboration/sessions', data),
+  getSession: (sessionId: string) => apiService.get(`/collaboration/sessions/${sessionId}`),
+  inviteUser: (sessionId: string, email: string) =>
+    apiService.post(`/collaboration/sessions/${sessionId}/invite`, { email }),
 };
 
-// Analytics service
-export const analyticsService = {
-  async trackEvent(event: string, properties?: Record<string, unknown>) {
-    return apiService.post('/analytics/events', { event, properties });
-  },
-
-  async getAnalytics(params?: QueryParams) {
-    return apiService.get('/analytics', { params });
-  },
-
-  async getDashboardStats() {
-    return apiService.get('/analytics/dashboard');
-  },
-
-  async getLearningProgress() {
-    return apiService.get('/analytics/learning-progress');
-  },
-
-  async getCodeMetrics() {
-    return apiService.get('/analytics/code-metrics');
-  },
-};
-
-// Notification service
+// Notifications
 export const notificationService = {
-  async getNotifications(params?: QueryParams) {
-    return apiService.get('/notifications', { params });
-  },
-
-  async markAsRead(notificationId: string) {
-    return apiService.patch(`/notifications/${notificationId}/read`);
-  },
-
-  async markAllAsRead() {
-    return apiService.patch('/notifications/read-all');
-  },
-
-  async deleteNotification(notificationId: string) {
-    return apiService.delete(`/notifications/${notificationId}`);
-  },
-
-  async getUnreadCount() {
-    return apiService.get('/notifications/unread-count');
-  },
-
-  async updatePreferences(preferences: unknown) {
-    return apiService.patch('/notifications/preferences', preferences);
-  },
+  getNotifications: (params?: { unread?: boolean; limit?: number; offset?: number }) =>
+    apiService.get('/notifications', { params }),
+  getUnreadCount: () => apiService.get('/notifications/unread-count'),
+  markAsRead: (notificationId: string) => apiService.patch(`/notifications/${notificationId}/read`),
+  markAllAsRead: () => apiService.patch('/notifications/read-all'),
+  deleteNotification: (notificationId: string) => apiService.delete(`/notifications/${notificationId}`),
 };
 
-// Search service
-export const searchService = {
-  async search(query: string, filters?: QueryParams) {
-    return apiService.get('/search', { params: { q: query, ...filters } });
-  },
-
-  async searchCourses(query: string, filters?: QueryParams) {
-    return apiService.get('/search/courses', { params: { q: query, ...filters } });
-  },
-
-  async searchPosts(query: string, filters?: QueryParams) {
-    return apiService.get('/search/posts', { params: { q: query, ...filters } });
-  },
-
-  async searchUsers(query: string, filters?: QueryParams) {
-    return apiService.get('/search/users', { params: { q: query, ...filters } });
-  },
-
-  async searchCode(query: string, filters?: QueryParams) {
-    return apiService.get('/search/code', { params: { q: query, ...filters } });
-  },
-
-  async getSearchSuggestions(query: string) {
-    return apiService.get('/search/suggestions', { params: { q: query } });
-  },
-};
-
-// Admin service
+// Administration (moderator / admin roles)
 export const adminService = {
-  async getStats() {
-    return apiService.get('/admin/stats');
-  },
-
-  async getUsers(params?: QueryParams) {
-    return apiService.get('/admin/users', { params });
-  },
-
-  async updateUser(userId: string, data: unknown) {
-    return apiService.patch(`/admin/users/${userId}`, data);
-  },
-
-  async banUser(userId: string, reason: string) {
-    return apiService.post(`/admin/users/${userId}/ban`, { reason });
-  },
-
-  async unbanUser(userId: string) {
-    return apiService.post(`/admin/users/${userId}/unban`);
-  },
-
-  async getCourses(params?: QueryParams) {
-    return apiService.get('/admin/courses', { params });
-  },
-
-  async createCourse(data: unknown) {
-    return apiService.post('/admin/courses', data);
-  },
-
-  async updateCourse(courseId: string, data: unknown) {
-    return apiService.patch(`/admin/courses/${courseId}`, data);
-  },
-
-  async deleteCourse(courseId: string) {
-    return apiService.delete(`/admin/courses/${courseId}`);
-  },
-
-  async getReports(params?: QueryParams) {
-    return apiService.get('/admin/reports', { params });
-  },
-
-  async resolveReport(reportId: string, action: string) {
-    return apiService.post(`/admin/reports/${reportId}/resolve`, { action });
-  },
-
-  async getSystemLogs(params?: QueryParams) {
-    return apiService.get('/admin/logs', { params });
-  },
+  getStats: () => apiService.get('/admin/stats'),
+  getUsers: (params?: QueryParams) => apiService.get('/admin/users', { params }),
+  getUser: (userId: string) => apiService.get(`/admin/users/${userId}`),
+  updateUser: (userId: string, data: { role?: string; isActive?: boolean }) =>
+    apiService.patch(`/admin/users/${userId}`, data),
+  banUser: (userId: string, reason: string) => apiService.post(`/admin/users/${userId}/ban`, { reason }),
+  unbanUser: (userId: string) => apiService.post(`/admin/users/${userId}/unban`),
+  moderatePost: (postId: string, data: { isPinned?: boolean; isLocked?: boolean; status?: string }) =>
+    apiService.patch(`/admin/posts/${postId}`, data),
+  getSettings: () => apiService.get('/admin/settings'),
+  putSetting: (key: string, value: unknown, description?: string) =>
+    apiService.put(`/admin/settings/${key}`, description === undefined ? { value } : { value, description }),
 };
 
-// Health service
+// Health
 export const healthService = {
-  async checkHealth() {
-    return apiService.get('/health');
-  },
-
-  async checkDatabase() {
-    return apiService.get('/health/database');
-  },
-
-  async checkRedis() {
-    return apiService.get('/health/redis');
-  },
-
-  async getMetrics() {
-    return apiService.get('/health/metrics');
-  },
+  check: () => apiService.get('/health'),
 };
 
-// Utility functions
 export const apiUtils = {
   // Build query string from object
   buildQueryString(params: Record<string, unknown>): string {

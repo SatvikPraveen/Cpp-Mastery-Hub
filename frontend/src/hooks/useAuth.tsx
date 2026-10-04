@@ -21,7 +21,7 @@ interface AuthContextType {
   changePassword: (data: ChangePasswordData) => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
   verifyEmail: (token: string) => Promise<void>;
-  resendVerificationEmail: (email: string) => Promise<void>;
+  resendVerificationEmail: () => Promise<void>;
   refreshToken: () => Promise<void>;
   hasRole: (role: string) => boolean;
   hasAnyRole: (roles: string[]) => boolean;
@@ -191,7 +191,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await authService.verifyEmail(token);
       // Update user state if verification changes user status
       if (user) {
-        setUser({ ...user, isEmailVerified: true });
+        setUser({ ...user, isVerified: true, emailVerifiedAt: new Date().toISOString() });
       }
     } catch (error) {
       console.error('Email verification error:', error);
@@ -199,9 +199,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [user]);
 
-  const resendVerificationEmail = useCallback(async (email: string) => {
+  const resendVerificationEmail = useCallback(async () => {
     try {
-      await authService.resendVerificationEmail(email);
+      await authService.resendVerificationEmail();
     } catch (error) {
       console.error('Resend verification error:', error);
       throw error;

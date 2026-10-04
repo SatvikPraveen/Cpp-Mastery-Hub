@@ -212,11 +212,10 @@ class AuthService {
 
   async verifyEmail(token: string): Promise<void> {
     try {
-      const response = await apiService.post<Partial<User>>('/auth/verify-email', { token });
+      const response = await apiService.post<{ user: User }>('/auth/verify-email', { token });
 
       if (response.success && response.data && this.currentUser) {
-        // Update user data if verification changes user status
-        this.currentUser = { ...this.currentUser, ...response.data, isEmailVerified: true };
+        this.currentUser = { ...this.currentUser, ...response.data.user };
         this.updateStoredUser();
         this.notifyAuthListeners();
       }
@@ -230,9 +229,10 @@ class AuthService {
     }
   }
 
-  async resendVerificationEmail(email: string): Promise<void> {
+  /** Sends a new verification email to the signed-in user's address. */
+  async resendVerificationEmail(): Promise<void> {
     try {
-      const response = await apiService.post('/auth/resend-verification', { email });
+      const response = await apiService.post('/auth/resend-verification');
 
       if (!response.success) {
         throw new Error(response.message ?? 'Failed to resend verification email');
@@ -280,13 +280,11 @@ class AuthService {
 
   async updateProfile(userData: Partial<User>): Promise<User> {
     try {
-      const response = await apiService.patch<User>('/users/profile', userData);
+      const response = await apiService.patch<{ user: User }>('/users/me', userData);
 
       if (response.success && response.data) {
-        // Update current user
-        this.currentUser = this.currentUser
-          ? { ...this.currentUser, ...response.data }
-          : response.data;
+        const updated = response.data.user;
+        this.currentUser = this.currentUser ? { ...this.currentUser, ...updated } : updated;
         this.updateStoredUser();
         this.notifyAuthListeners();
         return this.currentUser;
@@ -322,7 +320,7 @@ class AuthService {
   }
 
   get isEmailVerified(): boolean {
-    return this.currentUser?.isEmailVerified ?? false;
+    return this.currentUser?.isVerified ?? false;
   }
 
   getToken(): string | null {

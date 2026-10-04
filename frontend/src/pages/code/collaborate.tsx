@@ -10,6 +10,7 @@ import {
   Video,
   VideoOff,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
@@ -155,7 +156,7 @@ int main() {
   useEffect(() => {
     if (!socket || !user) return;
     socket.emit('join-session', {
-      user: { id: user.id, username: user.username, avatar: user.avatar ?? '' },
+      user: { id: user.id, username: user.username, avatar: user.avatarUrl ?? '' },
     });
   }, [socket, user]);
 
@@ -180,7 +181,7 @@ int main() {
       user: {
         id: user?.id ?? '',
         username: user?.username ?? 'Anonymous',
-        avatar: user?.avatar ?? '',
+        avatar: user?.avatarUrl ?? '',
       },
       content,
       timestamp: Date.now(),
@@ -620,4 +621,33 @@ int main() {
   );
 };
 
-export default CodeCollaborate;
+/**
+ * Real-time collaboration needs a session store and WebSocket relay on the backend that do not
+ * exist yet, so the page is disabled unless NEXT_PUBLIC_ENABLE_COLLABORATION=true.
+ */
+const COLLABORATION_ENABLED = process.env.NEXT_PUBLIC_ENABLE_COLLABORATION === 'true';
+
+const CollaborationUnavailable: React.FC = () => (
+  <Layout>
+    <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+      <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
+        Live collaboration is not available yet
+      </h1>
+      <p className="text-gray-600 dark:text-gray-400 mb-6">
+        Shared editing needs a server-side session relay that has not been built. You can still
+        write code in the editor, run static analysis, and share snippets publicly.
+      </p>
+      <Link
+        href="/code"
+        className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+      >
+        Open the editor
+      </Link>
+    </div>
+  </Layout>
+);
+
+const CollaboratePage: React.FC = () =>
+  COLLABORATION_ENABLED ? <CodeCollaborate /> : <CollaborationUnavailable />;
+
+export default CollaboratePage;

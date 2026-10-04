@@ -59,7 +59,7 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
 
     try {
       await communityService.updateComment(postId, comment.id, content);
-      onCommentUpdated?.(comment.id, { ...comment, content, isEdited: true });
+      onCommentUpdated?.(comment.id, { ...comment, content, updatedAt: new Date().toISOString() });
       setEditingId(null);
     } catch (error) {
       toast.error(getErrorMessage(error, 'Failed to update comment'));
@@ -125,7 +125,9 @@ export const CommentSection: React.FC<CommentSectionProps> = ({
                         {comment.user?.username ?? 'Anonymous'}
                       </span>
                       <span className="ml-2 text-gray-500">{timeAgo(comment.createdAt)}</span>
-                      {comment.isEdited && <span className="ml-1 text-gray-400">(edited)</span>}
+                      {comment.updatedAt !== comment.createdAt && (
+                        <span className="ml-1 text-gray-400">(edited)</span>
+                      )}
                     </div>
                     {isOwner && !isEditing && (
                       <div className="flex items-center space-x-1">

@@ -12,6 +12,7 @@ import Layout from '../../components/Layout/Layout';
 import { useAuth } from '../../hooks/useAuth';
 import { communityService } from '../../services/api';
 import type { ForumComment, ForumPost } from '../../types';
+import { getUserDisplayName } from '../../utils/helpers';
 
 interface PostPageProps {
   postId: string;
@@ -52,8 +53,8 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
         const postData = postResponse.data as PostWithViewerState;
         setPost(postData);
         setComments(commentsResponse.data as ForumComment[]);
-        setLikeCount(postData.likes ?? postData.upvotes ?? 0);
-        setViewCount(postData.views ?? postData.viewCount);
+        setLikeCount(postData.likes);
+        setViewCount(postData.views);
 
         if (isAuthenticated) {
           setIsLiked(postData.isLikedByUser ?? false);
@@ -231,25 +232,22 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
               {/* Post Meta */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getCategoryColor(post.category.name.toLowerCase())}`}>
-                    {post.category.name}
-                  </span>
+                  {post.category && (
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${getCategoryColor(post.category.name.toLowerCase())}`}>
+                      {post.category.name}
+                    </span>
+                  )}
                   {post.isPinned && (
                     <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium flex items-center">
                       <Award className="h-4 w-4 mr-1" />
                       Pinned
                     </span>
                   )}
-                  {post.isSolved && (
-                    <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                      ✓ Solved
-                    </span>
-                  )}
                 </div>
 
                 {/* Action Buttons */}
                 <div className="flex items-center space-x-2">
-                  {user && user.id === (post.author?.id ?? post.userId) && (
+                  {user && user.id === (post.user.id ?? post.userId) && (
                     <>
                       <button
                         onClick={handleEdit}
@@ -285,10 +283,10 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
               {/* Author Info */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
-                  <UserAvatar user={post.author ?? post.user} size="md" />
+                  <UserAvatar user={post.user ?? post.user} size="md" />
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-white">
-                      {post.author?.username ?? post.user.username}
+                      {getUserDisplayName(post.user)}
                     </p>
                     <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                       <Clock className="h-4 w-4" />
@@ -403,25 +401,23 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
             >
               <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Author</h3>
               <div className="text-center">
-                <UserAvatar user={post.author ?? post.user} size="lg" className="mx-auto mb-3" />
+                <UserAvatar user={post.user ?? post.user} size="lg" className="mx-auto mb-3" />
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
-                  {post.author?.username ?? post.user.username}
+                  {getUserDisplayName(post.user)}
                 </h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  {post.user.role ?? 'Member'}
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">@{post.user.username}</p>
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
                     <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {post.user.profile?.totalPoints ?? 0}
+                      {post.likes ?? 0}
                     </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Points</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Likes</p>
                   </div>
                   <div>
                     <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {post.author?.reputation ?? 0}
+                      {post.views ?? 0}
                     </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Reputation</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Views</p>
                   </div>
                 </div>
               </div>

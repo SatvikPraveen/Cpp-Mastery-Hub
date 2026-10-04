@@ -1,12 +1,15 @@
 import React from 'react';
 
 import { cn } from '@/utils/cn';
+import { getUserDisplayName } from '@/utils/helpers';
 
 export interface AvatarUser {
-  name?: string;
-  username?: string;
-  avatar?: string;
-  avatarUrl?: string;
+  name?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  username?: string | null;
+  avatar?: string | null;
+  avatarUrl?: string | null;
 }
 
 interface UserAvatarProps {
@@ -22,7 +25,7 @@ const sizeClasses: Record<NonNullable<UserAvatarProps['size']>, string> = {
 };
 
 const initialsFor = (user?: AvatarUser | null): string => {
-  const source = user?.name ?? user?.username ?? '';
+  const source = user ? getUserDisplayName(user) : '';
   const initials = source
     .split(/\s+/)
     .filter(Boolean)
@@ -33,8 +36,8 @@ const initialsFor = (user?: AvatarUser | null): string => {
 };
 
 export const UserAvatar: React.FC<UserAvatarProps> = ({ user, size = 'md', className }) => {
-  const src = user?.avatar ?? user?.avatarUrl;
-  const label = user?.name ?? user?.username ?? 'User';
+  const src = user?.avatarUrl ?? user?.avatar ?? undefined;
+  const label = user ? getUserDisplayName(user) : 'User';
 
   if (src) {
     return (

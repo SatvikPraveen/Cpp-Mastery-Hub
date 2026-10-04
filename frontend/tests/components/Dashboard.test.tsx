@@ -17,8 +17,9 @@ jest.mock('../../src/services/api', () => ({ api: { get: jest.fn() } }));
 const get = api.get as unknown as jest.Mock;
 
 function respondWith(byUrl: Record<string, unknown>) {
+  const defaults: Record<string, unknown> = { '/learning/progress': { progress: [] } };
   get.mockImplementation((url: string) =>
-    Promise.resolve({ success: true, data: byUrl[url] ?? {} })
+    Promise.resolve({ success: true, data: byUrl[url] ?? defaults[url] ?? {} })
   );
 }
 
@@ -26,7 +27,7 @@ describe('Dashboard', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('requests profile, progress, recommendations and activity', async () => {
-    respondWith({ '/users/me': { user: {} } });
+    respondWith({ '/users/me': { user: {} }, '/learning/progress': { progress: [] } });
     render(<Dashboard />);
     await waitFor(() => expect(get).toHaveBeenCalledTimes(4));
     expect(get.mock.calls.map((c) => c[0]).sort()).toEqual([
@@ -43,11 +44,17 @@ describe('Dashboard', () => {
       '/learning/progress': {
         progress: [
           {
-            courseId: { _id: 'c1', title: 'Modern C++ Fundamentals' },
-            progressPercentage: 40,
+            courseId: 'c1',
+            courseTitle: 'Modern C++ Fundamentals',
+            progress: 40,
             lastAccessedAt: new Date().toISOString(),
-            nextLessonTitle: 'Move semantics',
+            nextLesson: { id: 'l3', title: 'Move semantics' },
           },
+        ],
+      },
+      '/learning/recommendations': {
+        recommendations: [
+          { courseId: 'c2', title: 'The STL in Depth', difficulty: 'INTERMEDIATE', reason: 'next difficulty level' },
         ],
       },
     });
@@ -57,6 +64,8 @@ describe('Dashboard', () => {
     expect(screen.getByText('Courses in Progress')).toBeInTheDocument();
     expect(screen.getByText('Modern C++ Fundamentals')).toBeInTheDocument();
     expect(screen.getByText('Next: Move semantics')).toBeInTheDocument();
+    expect(screen.getByText('The STL in Depth')).toBeInTheDocument();
+    expect(screen.getByText('next difficulty level')).toBeInTheDocument();
   });
 
   it('shows a retryable error when the API fails', async () => {

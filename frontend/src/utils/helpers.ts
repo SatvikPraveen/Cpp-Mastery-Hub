@@ -380,10 +380,10 @@ export function generateAvatarUrl(name: string, size = 100): string {
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=${size}&background=${bgColor}&color=fff&bold=true`;
 }
 interface NamedUser {
-  name?: string | undefined;
-  username?: string | undefined;
-  firstName?: string | undefined;
-  lastName?: string | undefined;
+  name?: string | null | undefined;
+  username?: string | null | undefined;
+  firstName?: string | null | undefined;
+  lastName?: string | null | undefined;
 }
 
 /**
@@ -405,3 +405,4 @@ export function getUserInitials(user: NamedUser): string {
     .slice(0, 2)
     .toUpperCase();
 }
+

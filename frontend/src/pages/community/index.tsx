@@ -10,6 +10,7 @@ import Layout from '../../components/Layout/Layout';
 import { useAuth } from '../../hooks/useAuth';
 import { communityService } from '../../services/api';
 import type { ForumPost, LeaderboardEntry } from '../../types';
+import { getUserDisplayName } from '../../utils/helpers';
 
 type CommunityHubProps = Record<string, never>;
 
@@ -302,7 +303,7 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
                       <PostCard
                         post={post}
                         onClick={() => handlePostClick(post.id)}
-                        onUserClick={() => handleUserClick(post.author?.id ?? post.userId)}
+                        onUserClick={() => handleUserClick(post.user.id ?? post.userId)}
                       />
                     </motion.div>
                   ))}
@@ -340,7 +341,7 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
                       <PostCard
                         post={post}
                         onClick={() => handlePostClick(post.id)}
-                        onUserClick={() => handleUserClick(post.author?.id ?? post.userId)}
+                        onUserClick={() => handleUserClick(post.user.id ?? post.userId)}
                         showTrendingBadge
                       />
                     </motion.div>
@@ -373,10 +374,10 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
                     <UserAvatar user={user} size="md" />
                     <div className="min-w-0">
                       <p className="font-semibold text-gray-900 dark:text-white truncate">
-                        {user.name}
+                        {getUserDisplayName(user)}
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                        @{user.username} · {user.profile?.totalPoints ?? 0} points
+                        @{user.username}
                       </p>
                     </div>
                   </button>
