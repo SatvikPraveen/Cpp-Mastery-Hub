@@ -58,10 +58,18 @@ Conventions:
 npm ci --ignore-scripts                   # workspaces: installs both tiers
 npm run type-check                        # tsc --noEmit in both workspaces
 npm run lint
-npm test --workspace backend
+npm test --workspace backend      # unit, integration, engine contract (needs a built engine)
 npm test --workspace frontend
 npm run build --workspace frontend
+E2E_DATABASE_URL=postgresql://… npm run test:e2e --workspace backend   # migrates, seeds, runs the journey
 ```
+
+- Database changes: edit `backend/prisma/schema.prisma`, then create a migration with
+  `npx prisma migrate dev --name <change>` against a local database and commit it. CI fails if
+  the schema and migrations disagree.
+- The frontend's `src/services/api.ts` and `src/types/index.ts` mirror the backend contract in
+  `docs/api/README.md`; change all three together.
+- Features without a backend stay behind `NEXT_PUBLIC_ENABLE_*` flags that default to off.
 
 - Do not weaken `tsconfig` strictness. Avoid `any`/`@ts-ignore`; when unavoidable, leave a
   one-line justification.

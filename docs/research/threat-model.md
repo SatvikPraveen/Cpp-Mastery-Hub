@@ -26,17 +26,16 @@ file uploads.
 
 | Threat | Control | Status |
 |---|---|---|
-| Crash / UB on crafted source | Total lexer; property tests over random bytes; ASan+UBSan in CI; libFuzzer harnesses with invariant aborts | Implemented |
+| Crash / UB on crafted source | Total lexer; property tests over random bytes; ASan+UBSan in CI; libFuzzer harnesses with invariant aborts (one invariant violation found and fixed, see the layout model) | Implemented |
 | Algorithmic DoS (super-linear time) | Lexer is O(n); bracket matching is O(n) per function; benchmarks track MB/s | Implemented; CI benchmark job is informational, not gating |
-| Memory exhaustion | Token vector is O(n) in input size; backend must cap request body (see below) | Engine: by construction. Backend cap: **pending** |
+| Memory exhaustion | Token vector is O(n) in input size; adapter caps bodies at 256 KiB; backend caps JSON at 1 MiB and source at 256 KiB; nginx `client_max_body_size 1m` | Implemented |
 | Code execution via the engine | Engine never compiles or runs input; no `system`, no file writes, reads only the named file or stdin | Implemented; enforced by the engine's own `security/*` rules on its sources in CI |
 | Supply chain | No third-party runtime dependencies; test deps pinned by commit; digest-pinned Docker base | Implemented |
 
 ## Code execution path (backend `execution-service`)
 
-The present scaffold forwards code to `CPP_ENGINE_URL/execute`. The engine in this repository
-**does not implement `/execute`**; the execution path is therefore non-functional, not merely
-unsafe. The design below is the acceptance bar for enabling it.
+`POST /api/code/execute` answers **501** and the engine adapter answers 501 for `/execute`; no
+code path compiles or runs learner input. The design below is the acceptance bar for enabling it.
 
 | Threat | Required control | Status |
 |---|---|---|
@@ -53,12 +52,14 @@ features (metrics, rules, layout) are safe to expose because they never execute 
 
 | Threat | Control | Status |
 |---|---|---|
-| Credential stuffing / brute force | `express-rate-limit` on auth routes; bcrypt cost 12 | Present in scaffold; limits need tuning |
-| Token theft | Short-lived access JWT (15 min) + refresh rotation; `helmet` headers; CORS allow-list | Present in scaffold |
-| Injection | Prisma parameterised queries; `zod`/`joi` validation at route boundary | Present in scaffold; coverage not audited |
-| XSS in forum content | Must sanitise rendered Markdown/HTML server-side | **Not audited** |
+| Credential stuffing / brute force | 10 failed attempts / 15 min / IP on login and registration; bcrypt cost 12; constant-time failure path (dummy hash) so responses do not reveal which emails exist | Implemented; tested |
+| Token theft | Access tokens bound to a server-side session row (15 min); refresh tokens use a separate secret, rotate on every use, and reuse revokes all sessions; logout, password change and bans revoke immediately; `helmet`; CORS allow-list | Implemented; tested |
+| Injection | Prisma parameterised queries (the one raw query uses tagged-template parameters); zod validation on every route body, query and path parameter | Implemented |
+| XSS in forum content | Bodies are rendered as React text nodes (escaped); the frontend contains no `dangerouslySetInnerHTML`. A future Markdown renderer must sanitise its HTML output (e.g. rehype-sanitize) | Mitigated for current rendering; re-audit when Markdown rendering is added |
 | Secrets in repo | `.env*` git-ignored; `.env.example` placeholders only; compose defaults are development-only strings | Implemented |
-| Oversized requests to the engine | Body-size cap (recommend 256 KiB) before invoking the engine | **Pending** |
+| Oversized requests to the engine | 256 KiB source cap in the backend and the adapter; subprocess timeout | Implemented |
+| Account takeover via reset links | Single-use reset tokens keyed to the current password hash; one-hour expiry; generic response for unknown addresses | Implemented; tested |
+| Prototype pollution through request bodies | No key-copying sanitiser; zod parses into fresh objects | Implemented |
 
 ## Reporting
 

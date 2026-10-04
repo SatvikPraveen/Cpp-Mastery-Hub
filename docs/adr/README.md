@@ -11,3 +11,4 @@ edited after acceptance; it is superseded by a new one.
 | [0004](0004-verification-stack.md) | Verification stack: property tests, sanitizers, fuzzing, gated evaluation | Accepted |
 | [0005](0005-engine-cli-contract.md) | Engine exposes a CLI with versioned JSON; HTTP is a thin adapter | Accepted |
 | [0006](0006-single-commit-identity.md) | Single canonical commit identity | Accepted |
+| [0007](0007-backend-on-generated-prisma-client.md) | Backend on the generated Prisma client, edge validation, PostgreSQL-backed tests | Accepted |

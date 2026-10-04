@@ -1,197 +1,105 @@
-# Getting Started with C++ Mastery Hub
+# Getting started
 
-Welcome to C++ Mastery Hub! This guide will help you get up and running quickly with our comprehensive C++ learning platform.
+This guide takes you from a fresh clone to a running platform with a seeded course, then
+through the main things a learner can do. Every command here is exercised by CI.
 
-## 🚀 Account Setup
+## 1. Prerequisites
 
-### Creating Your Account
-1. **Visit the Homepage**: Navigate to [C++ Mastery Hub](https://cppmastery.hub)
-2. **Click "Sign Up"**: Located in the top-right corner
-3. **Choose Registration Method**:
-   - Email and password
-   - Google OAuth
-   - GitHub OAuth
-4. **Complete Your Profile**:
-   - Set your display name
-   - Choose your experience level
-   - Select learning goals
+| Tool | Version | Needed for |
+|---|---|---|
+| Docker + Compose v2 | 24+ | the full stack (option A) |
+| Node.js + npm | 18 or 20 | backend and frontend (option B) |
+| CMake, Ninja, a C++20 compiler | CMake 3.25+, GCC 11+/Clang 14+/AppleClang 14+ | the analysis engine (option B) |
+| Python | 3.9+ | engine HTTP adapter, evaluation script |
+| PostgreSQL | 14+ (16 tested) | option B, or use the compose service |
 
-### Profile Configuration
-- **Learning Preferences**: Set your preferred difficulty level
-- **Notification Settings**: Configure email and in-app notifications
-- **Privacy Settings**: Control visibility of your progress and code
+## 2a. Run everything with Docker
 
-## 🎯 Choosing Your Learning Path
+```bash
+git clone https://github.com/SatvikPraveen/Cpp-Mastery-Hub.git
+cd Cpp-Mastery-Hub
+cp .env.example .env                 # then replace every "change-me" / "replace-with" value
+docker compose up -d --build         # postgres, redis, engine, backend, frontend, nginx
+docker compose exec backend npx prisma migrate deploy
+docker compose exec backend npm run db:seed
+```
 
-### Experience Levels
-- **Beginner**: No prior C++ experience
-- **Intermediate**: Basic programming knowledge
-- **Advanced**: Experienced programmer new to C++
-- **Expert**: Professional seeking specific skills
+Open http://localhost:3000. The API is at http://localhost:8000/api and the engine adapter at
+http://localhost:9000.
 
-### Available Learning Paths
-1. **C++ Fundamentals**
-   - Variables and data types
-   - Control structures
-   - Functions and scope
-   - Basic input/output
+Generate secrets with `openssl rand -hex 32`; the backend refuses to start if `JWT_SECRET`,
+`JWT_REFRESH_SECRET` or `SESSION_SECRET` is shorter than 32 characters.
 
-2. **Object-Oriented Programming**
-   - Classes and objects
-   - Inheritance and polymorphism
-   - Encapsulation and abstraction
-   - Design patterns
+## 2b. Run the parts natively (development)
 
-3. **Advanced C++**
-   - Templates and generics
-   - STL and algorithms
-   - Memory management
-   - Concurrent programming
+```bash
+# Engine: build, test, and serve the HTTP adapter on :9000
+cd cpp-engine
+cmake --workflow --preset dev
+CPPMASTERY_BIN=$PWD/build/dev/cppmastery python3 tools/http_adapter/cppmastery_http.py &
+cd ..
 
-4. **Systems Programming**
-   - Low-level programming
-   - Operating system interfaces
-   - Network programming
-   - Performance optimization
+# Database (or point DATABASE_URL at an existing PostgreSQL)
+docker run -d --name cmh-pg -e POSTGRES_PASSWORD=dev -e POSTGRES_DB=cppmastery -p 5432:5432 postgres:16-alpine
 
-## 💻 Using the Code Editor
+# Backend on :8000
+npm ci --ignore-scripts
+cp backend/.env.example backend/.env    # set DATABASE_URL and the three secrets
+cd backend
+npx prisma migrate deploy && npm run db:seed
+npm run dev &
+cd ..
 
-### Basic Features
-- **Syntax Highlighting**: Automatic C++ syntax coloring
-- **Auto-completion**: IntelliSense-style code suggestions
-- **Error Detection**: Real-time compilation errors
-- **Code Formatting**: Automatic code beautification
+# Frontend on :3000
+cp frontend/.env.example frontend/.env.local
+npm run dev --workspace frontend
+```
 
-### Running Your First Program
-1. **Open the Editor**: Click "New Project" or use a tutorial
-2. **Write Your Code**:
-   ```cpp
-   #include <iostream>
-   
-   int main() {
-       std::cout << "Hello, C++ Mastery Hub!" << std::endl;
-       return 0;
-   }
-   ```
-3. **Click "Run"**: Execute your program
-4. **View Output**: See results in the output panel
+## 3. First steps as a learner
 
-### Understanding the Interface
-- **Code Panel**: Main editing area
-- **Output Panel**: Program execution results
-- **Visualization Panel**: Memory and execution visualization
-- **Documentation Panel**: Context-sensitive help
+1. **Register** at `/auth/register`. In development without SMTP the verification link is
+   written to the backend log; open it to verify your address.
+2. **Browse courses** at `/learn`. The seed provides *Resource Management in Modern C++*
+   with three lessons, a quiz and an exercise.
+3. **Enrol and work through lessons.** Progress is the fraction of published lessons you have
+   completed; the dashboard shows the next unfinished lesson for each course.
+4. **Take the quiz** on the last lesson. Answers are graded on the server; you get per-question
+   feedback and a limited number of attempts.
+5. **Open the editor** at `/code`. Write C++ and run *Analyze*: you get diagnostics, each
+   citing the guideline it enforces, plus metrics (cyclomatic complexity, Halstead volume,
+   maintainability). Use the memory-layout view on a struct to see padding and an optimal
+   field order.
+6. **Save snippets**, make them public, and share them in the **community** forum.
+7. **Check recommendations** on the dashboard: each suggested course comes with the reason it
+   was ranked there.
 
-## 📊 Progress Tracking
+> Running programs is intentionally disabled. The *Run* action reports that execution needs a
+> sandbox; see `docs/research/threat-model.md` for what that sandbox must provide.
 
-### Dashboard Overview
-- **Learning Progress**: Visual progress bars for each topic
-- **Streak Counter**: Days of consecutive learning
-- **Achievements**: Badges and milestones earned
-- **Recent Activity**: Your latest code and exercises
+## 4. Using the engine on its own
 
-### Setting Goals
-- **Daily Coding Time**: Set target minutes per day
-- **Weekly Challenges**: Participate in coding challenges
-- **Project Milestones**: Track long-term project progress
-- **Skill Assessments**: Regular knowledge validation
+```bash
+cpp-engine/build/dev/cppmastery analyze path/to/file.cpp
+cpp-engine/build/dev/cppmastery layout --abi llp64 path/to/structs.hpp
+cpp-engine/build/dev/cppmastery rules
+```
 
-## 🎓 Learning Features
+Add `--json` for machine-readable output (schemas in `cpp-engine/schemas/`).
 
-### Interactive Tutorials
-- **Step-by-step Guidance**: Detailed explanations with examples
-- **Hands-on Practice**: Write code as you learn
-- **Instant Feedback**: Immediate validation of your solutions
-- **Progress Checkpoints**: Save your progress automatically
+## 5. Running the tests
 
-### Code Visualization
-- **Memory Layout**: See how variables are stored in memory
-- **Execution Flow**: Step through program execution
-- **Algorithm Animation**: Visualize sorting and searching algorithms
-- **Data Structure Diagrams**: Understand linked lists, trees, etc.
+```bash
+cmake --workflow --preset dev                    # in cpp-engine/: 70 engine tests
+npm test --workspace backend                     # 64 backend tests (unit, integration, contract)
+npm test --workspace frontend                    # 25 frontend tests
+E2E_DATABASE_URL=postgresql://… npm run test:e2e --workspace backend   # learner journey on PostgreSQL
+```
 
-### Assessment System
-- **Knowledge Quizzes**: Multiple choice and coding questions
-- **Practical Projects**: Build real applications
-- **Peer Review**: Get feedback from other learners
-- **Certification Exams**: Validate your skills officially
+## Troubleshooting
 
-## 🤝 Community Features
-
-### Discussion Forums
-- **General Discussion**: Chat with other learners
-- **Help & Support**: Get assistance with problems
-- **Code Review**: Share code for feedback
-- **Show and Tell**: Showcase your projects
-
-### Mentorship Program
-- **Find a Mentor**: Connect with experienced developers
-- **Become a Mentor**: Help others learn C++
-- **Group Study**: Join or create study groups
-- **Live Sessions**: Participate in live coding sessions
-
-## 🔧 Customization Options
-
-### Editor Preferences
-- **Theme Selection**: Choose light or dark themes
-- **Font Configuration**: Customize font family and size
-- **Key Bindings**: Set your preferred keyboard shortcuts
-- **Layout Options**: Arrange panels to your liking
-
-### Learning Preferences
-- **Difficulty Scaling**: Adjust challenge level automatically
-- **Content Types**: Prefer videos, text, or interactive content
-- **Reminder Settings**: Configure learning reminders
-- **Language Settings**: Choose your preferred interface language
-
-## 📱 Mobile Experience
-
-### Mobile App Features
-- **Offline Reading**: Download tutorials for offline study
-- **Code Review**: Review and comment on code on-the-go
-- **Progress Sync**: Seamless synchronization across devices
-- **Push Notifications**: Stay engaged with learning reminders
-
-### Web Mobile
-- **Responsive Design**: Optimized for mobile browsers
-- **Touch-friendly Interface**: Easy navigation on touchscreens
-- **Quick Access**: Swipe gestures for common actions
-- **Performance Optimized**: Fast loading on mobile connections
-
-## 🆘 Getting Help
-
-### Built-in Help
-- **Contextual Help**: Relevant documentation for current topic
-- **FAQ Section**: Answers to common questions
-- **Video Tutorials**: Visual guides for platform features
-- **Search Function**: Find specific information quickly
-
-### Community Support
-- **Help Forum**: Ask questions and get answers
-- **Live Chat**: Real-time assistance during peak hours
-- **Peer Support**: Help from fellow learners
-- **Office Hours**: Scheduled time with instructors
-
-### Contact Support
-- **Email Support**: support@cppmastery.hub
-- **Bug Reports**: Use the built-in reporting tool
-- **Feature Requests**: Suggest improvements
-- **Technical Issues**: Get help with technical problems
-
-## 🏆 Next Steps
-
-### Recommended Actions
-1. **Complete Your Profile**: Fill in all profile information
-2. **Take the Skills Assessment**: Determine your starting level
-3. **Choose a Learning Path**: Select the most appropriate track
-4. **Start Your First Tutorial**: Begin with the fundamentals
-5. **Join the Community**: Introduce yourself in the forums
-
-### Pro Tips
-- **Set Daily Goals**: Consistency is key to learning
-- **Practice Regularly**: Write code every day, even if just 15 minutes
-- **Engage with Community**: Learn from others' experiences
-- **Track Progress**: Use the dashboard to monitor improvement
-- **Don't Rush**: Understanding is more important than speed
-
-Welcome to your C++ mastery journey! 🚀
+| Symptom | Cause and fix |
+|---|---|
+| Backend exits with "Missing or invalid environment variables" | A required variable is unset or a secret is under 32 characters; compare with `backend/.env.example` |
+| Analysis returns 503 | The engine adapter is not running or `CPP_ENGINE_URL` is wrong |
+| `prisma` errors about a missing client | Run `npx prisma generate` in `backend/` (the `type-check`, `build` and `test` scripts do this) |
+| Frontend requests 404 | `NEXT_PUBLIC_API_URL` must be the backend origin without `/api` |

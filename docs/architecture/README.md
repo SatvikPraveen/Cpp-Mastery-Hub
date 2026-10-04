@@ -1,291 +1,103 @@
-# C++ Mastery Hub Architecture
+# Architecture
 
-This document provides a comprehensive overview of the C++ Mastery Hub architecture, design decisions, and system components.
-
-## 🏗️ High-Level Architecture
-
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        WEB[Web Browser]
-        MOBILE[Mobile App]
-        API_CLIENT[API Clients]
-    end
-    
-    subgraph "Load Balancer"
-        NGINX[Nginx]
-    end
-    
-    subgraph "Application Layer"
-        FRONTEND[Frontend<br/>React/Next.js]
-        BACKEND[Backend<br/>Node.js/Express]
-        CPP_ENGINE[C++ Engine<br/>LLVM/Clang]
-    end
-    
-    subgraph "Data Layer"
-        POSTGRES[(PostgreSQL)]
-        MONGODB[(MongoDB)]
-        REDIS[(Redis)]
-    end
-    
-    subgraph "External Services"
-        EMAIL[Email Service]
-        CDN[CDN]
-        MONITORING[Monitoring]
-    end
-    
-    WEB --> NGINX
-    MOBILE --> NGINX
-    API_CLIENT --> NGINX
-    
-    NGINX --> FRONTEND
-    NGINX --> BACKEND
-    NGINX --> CPP_ENGINE
-    
-    FRONTEND --> BACKEND
-    BACKEND --> CPP_ENGINE
-    
-    BACKEND --> POSTGRES
-    BACKEND --> MONGODB
-    BACKEND --> REDIS
-    
-    BACKEND --> EMAIL
-    FRONTEND --> CDN
-    BACKEND --> MONITORING
-```
-
-## 🧩 System Components
-
-### Frontend (React/TypeScript/Next.js)
-- **Purpose**: User interface and experience
-- **Technology**: React 18, TypeScript, Next.js 14, Tailwind CSS
-- **Key Features**:
-  - Server-side rendering for SEO and performance
-  - Progressive Web App capabilities
-  - Real-time updates via WebSocket
-  - Code editor with Monaco Editor
-  - Memory visualization components
-  - Responsive design for all devices
-
-### Backend (Node.js/Express/TypeScript)
-- **Purpose**: API server, business logic, authentication
-- **Technology**: Node.js, Express, TypeScript, Prisma ORM
-- **Key Features**:
-  - RESTful API with OpenAPI documentation
-  - JWT-based authentication with refresh tokens
-  - Real-time communication via Socket.io
-  - Rate limiting and security middleware
-  - Comprehensive logging and monitoring
-  - Background job processing
-
-### C++ Analysis Engine (C++/LLVM/Clang)
-- **Purpose**: Code analysis, compilation, and execution
-- **Technology**: Modern C++20, LLVM 17, Clang, CMake
-- **Key Features**:
-  - LLVM/Clang integration for AST parsing
-  - Static analysis with security vulnerability detection
-  - Memory visualization and profiling
-  - Secure sandboxed code execution
-  - Performance metrics collection
-  - HTTP API for integration
-
-### Database Layer
-- **PostgreSQL**: Primary database for structured data
-- **MongoDB**: Document storage for flexible content
-- **Redis**: Caching, sessions, and real-time data
-
-## 🔄 Data Flow Architecture
+C++ Mastery Hub has three deployable parts and two data stores. The design rule that shapes
+everything else: **learner-submitted code is analysed, never executed**, until a sandbox that
+meets the threat model exists (ADR-0005, `docs/research/threat-model.md`).
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant Frontend
-    participant Backend
-    participant CppEngine
-    participant Database
-    
-    User->>Frontend: Submit C++ Code
-    Frontend->>Backend: POST /api/code/analyze
-    Backend->>CppEngine: Analyze Code Request
-    CppEngine->>CppEngine: Parse AST
-    CppEngine->>CppEngine: Static Analysis
-    CppEngine->>CppEngine: Memory Visualization
-    CppEngine->>Backend: Analysis Results
-    Backend->>Database: Store Results
-    Backend->>Frontend: Return Analysis
-    Frontend->>User: Display Results
+flowchart LR
+    subgraph Browser
+        UI["Next.js 14 client<br/>Monaco editor, dashboards"]
+    end
+
+    subgraph Backend["backend/ (Node 18+, Express, TypeScript)"]
+        API["REST API /api/*<br/>zod validation, sessions, RBAC"]
+        RT["Socket.IO<br/>user:&lt;id&gt; notification rooms"]
+        SVC["Services<br/>learning, community, snippets,<br/>notifications, analysis cache"]
+    end
+
+    subgraph Engine["cpp-engine/ (C++20, no runtime deps)"]
+        AD["HTTP adapter<br/>(stdlib Python, 256 KiB cap, timeout)"]
+        CLI["cppmastery CLI<br/>lexer · metrics · 20 rules · layout"]
+    end
+
+    PG[("PostgreSQL 16<br/>Prisma schema + migrations")]
+    RD[("Redis (optional)<br/>cache, rate limits")]
+
+    UI -- "HTTPS JSON" --> API
+    UI <-- "WebSocket" --> RT
+    API --> SVC
+    SVC --> PG
+    SVC -.-> RD
+    SVC -- "POST /analyze, /layout …" --> AD
+    AD -- "subprocess, stdin/stdout" --> CLI
 ```
 
-## 🏛️ Design Patterns & Principles
+## Components
 
-### Architecture Patterns
-- **Microservices**: Loosely coupled services with clear boundaries
-- **Event-Driven**: Asynchronous communication via events
-- **CQRS**: Command Query Responsibility Segregation for complex operations
-- **API Gateway**: Single entry point with routing and authentication
+### Analysis engine (`cpp-engine/`)
 
-### Design Patterns
-- **Repository Pattern**: Data access abstraction
-- **Factory Pattern**: Object creation for different analyzers
-- **Observer Pattern**: Real-time updates and notifications
-- **Strategy Pattern**: Pluggable analysis algorithms
-- **Decorator Pattern**: Enhancement of core functionalities
+A C++20 static library plus CLI with no third-party runtime dependencies. A total lexer feeds
+classical metrics (Halstead, McCabe, Maintainability Index), a rule engine whose 20 rules each
+cite a guideline, and a struct-layout model with a provably optimal reordering. Output is
+versioned JSON validated by JSON Schema. The HTTP adapter is a thin, stateless wrapper that
+spawns the CLI per request with a size cap and timeout; it is the only network-facing piece of
+the engine and it never compiles or runs input. Details: `cpp-engine/README.md`,
+`docs/research/`.
 
-### SOLID Principles
-- **Single Responsibility**: Each class has one reason to change
-- **Open/Closed**: Open for extension, closed for modification
-- **Liskov Substitution**: Subtypes must be substitutable
-- **Interface Segregation**: Many specific interfaces vs one general
-- **Dependency Inversion**: Depend on abstractions, not concretions
+### Backend (`backend/`)
 
-## 🔐 Security Architecture
+`src/app.ts` builds the Express application (used directly by the tests); `src/server.ts` adds
+the database connection, optional Redis, Socket.IO and graceful shutdown.
 
-### Authentication & Authorization
-```mermaid
-graph LR
-    A[User Login] --> B[JWT Token]
-    B --> C[Access Token]
-    B --> D[Refresh Token]
-    C --> E[API Access]
-    D --> F[Token Renewal]
-    E --> G[Role-Based Access]
-    G --> H[Resource Permissions]
-```
+| Layer | Location | Responsibility |
+|---|---|---|
+| Routes | `src/api/routes/*.ts` | Parse and validate input with zod, call a service, shape the response |
+| Middleware | `src/api/middleware/` | Session-bound JWT auth, role checks, rate limits, error mapping |
+| Services | `src/services/` | Domain logic: sessions, learning, snippets, notifications, engine client |
+| Data | `prisma/schema.prisma` | 26 models; migrations in `prisma/migrations/`; idempotent seed |
 
-### Security Measures
-- **JWT Authentication**: Stateless token-based authentication
-- **Role-Based Access Control**: Granular permissions system
-- **Code Sandboxing**: Isolated execution environment
-- **Input Validation**: Comprehensive sanitization
-- **Rate Limiting**: DDoS protection and resource management
-- **HTTPS Everywhere**: End-to-end encryption
-- **Security Headers**: CORS, CSP, HSTS implementation
+Sessions are rows in `user_sessions`: an access token is valid only while its row is active,
+which makes logout, password change and bans effective immediately. Refresh tokens rotate on
+use and reuse revokes every session of the user.
 
-## 📊 Performance Architecture
+Pure, deterministic logic (quiz grading, course recommendation ranking, cache keys) lives in
+dependency-free modules so it can be unit-tested without a database.
 
-### Caching Strategy
-```mermaid
-graph TB
-    A[Client Request] --> B{Cache Check}
-    B -->|Hit| C[Return Cached Data]
-    B -->|Miss| D[Process Request]
-    D --> E[Update Cache]
-    E --> F[Return Data]
-    
-    subgraph "Cache Layers"
-        G[Browser Cache]
-        H[CDN Cache]
-        I[Application Cache]
-        J[Database Cache]
-    end
-```
+### Frontend (`frontend/`)
 
-### Performance Optimizations
-- **Multi-level Caching**: Browser, CDN, Application, Database
-- **Code Splitting**: Lazy loading of frontend components
-- **Database Indexing**: Optimized query performance
-- **Connection Pooling**: Efficient database connections
-- **Horizontal Scaling**: Load distribution across instances
-- **Asset Optimization**: Minification, compression, bundling
+Next.js 14 (pages router) with Tailwind. `src/services/api.ts` is a typed client whose paths
+mirror `docs/api/README.md`; `src/types/index.ts` mirrors the backend's response shapes. Monaco
+is loaded at runtime with `@monaco-editor/loader` because its ESM build imports CSS that
+Next.js cannot bundle. Features the backend does not provide (live collaboration, OAuth) are
+behind explicit `NEXT_PUBLIC_ENABLE_*` flags that default to off.
 
-## 🔄 Deployment Architecture
+## Request lifecycle: analysing code
 
-### Production Environment
-```mermaid
-graph TB
-    subgraph "Load Balancer"
-        LB[HAProxy/Nginx]
-    end
-    
-    subgraph "Application Cluster"
-        FE1[Frontend Instance 1]
-        FE2[Frontend Instance 2]
-        BE1[Backend Instance 1]
-        BE2[Backend Instance 2]
-        CE1[C++ Engine Instance 1]
-        CE2[C++ Engine Instance 2]
-    end
-    
-    subgraph "Database Cluster"
-        PG_M[PostgreSQL Master]
-        PG_S1[PostgreSQL Slave 1]
-        PG_S2[PostgreSQL Slave 2]
-        MONGO[MongoDB Cluster]
-        REDIS_C[Redis Cluster]
-    end
-    
-    LB --> FE1
-    LB --> FE2
-    FE1 --> BE1
-    FE2 --> BE2
-    BE1 --> CE1
-    BE2 --> CE2
-    
-    BE1 --> PG_M
-    BE2 --> PG_M
-    BE1 --> PG_S1
-    BE2 --> PG_S2
-    BE1 --> MONGO
-    BE2 --> MONGO
-    BE1 --> REDIS_C
-    BE2 --> REDIS_C
-```
+1. The editor posts `{code}` to `POST /api/analysis/analyze`.
+2. The route validates size and options; the analysis service hashes `(endpoint, code,
+   options)` and returns a cached report if present.
+3. Otherwise the engine client posts to the adapter, which runs
+   `cppmastery analyze --json --fail-on never -` with a timeout and returns the report.
+4. Transport failures map to 503 (unreachable) or 504 (timeout); adapter 4xx errors pass
+   through; the report is cached for an hour (results depend only on input and engine version).
 
-### Deployment Pipeline
-- **CI/CD Integration**: Automated testing and deployment
-- **Blue-Green Deployment**: Zero-downtime deployments
-- **Container Orchestration**: Docker with Kubernetes
-- **Infrastructure as Code**: Terraform for provisioning
-- **Monitoring & Alerting**: Comprehensive observability
+## Deployment
 
-## 🏗️ Scalability Considerations
+`docker-compose.yml` runs the full stack locally with production-like settings; the engine
+container has a read-only root filesystem, drops all capabilities and runs as an unprivileged
+user. `docker-compose.prod.yml` uses the images CI publishes to GHCR. The engine image runs its
+entire test suite and evaluation during `docker build`, so an image that exists has passed.
 
-### Horizontal Scaling
-- **Stateless Services**: Enable easy scaling across instances
-- **Load Balancing**: Distribute traffic efficiently
-- **Database Sharding**: Partition data across multiple nodes
-- **Microservices**: Independent scaling of components
+## Quality gates
 
-### Vertical Scaling
-- **Resource Optimization**: CPU and memory tuning
-- **Database Optimization**: Query optimization and indexing
-- **Caching Strategies**: Reduce computational overhead
-- **Algorithm Efficiency**: Optimized code analysis algorithms
+| Gate | Where |
+|---|---|
+| Engine: GCC 12/13, Clang 18, AppleClang builds; 70 tests; ASan+UBSan; clang-tidy; clang-format; libFuzzer smoke; evaluation | `.github/workflows/engine.yml` |
+| Backend: strict `tsc`, ESLint, 64 unit/integration/contract tests, production build | `.github/workflows/web.yml` (backend) |
+| Backend end-to-end on PostgreSQL 16 with the real engine; schema-drift check | `.github/workflows/web.yml` (e2e) |
+| Frontend: strict `tsc`, `next lint`, 25 tests, production build | `.github/workflows/web.yml` (frontend) |
+| CodeQL (C/C++, JavaScript/TypeScript) | `.github/workflows/codeql.yml` |
+| Engine image build + smoke test, GHCR publish | `.github/workflows/docker.yml` |
 
-## 🔍 Monitoring & Observability
-
-### Metrics Collection
-- **Application Metrics**: Response times, throughput, errors
-- **Infrastructure Metrics**: CPU, memory, disk, network
-- **Business Metrics**: User engagement, feature usage
-- **Security Metrics**: Authentication failures, access patterns
-
-### Logging Strategy
-- **Structured Logging**: JSON format for easy parsing
-- **Centralized Logging**: ELK stack for log aggregation
-- **Log Levels**: DEBUG, INFO, WARN, ERROR, FATAL
-- **Correlation IDs**: Track requests across services
-
-### Alerting System
-- **Real-time Alerts**: Critical system issues
-- **Threshold Monitoring**: Performance degradation
-- **Trend Analysis**: Capacity planning and optimization
-- **Incident Response**: Automated escalation procedures
-
-## 🚀 Future Architecture Considerations
-
-### Planned Enhancements
-- **Machine Learning Integration**: AI-powered code suggestions
-- **GraphQL API**: More efficient data fetching
-- **Event Sourcing**: Complete audit trail of changes
-- **Serverless Functions**: Cost-effective scaling for specific tasks
-- **Edge Computing**: Reduced latency for global users
-
-### Technology Evolution
-- **WebAssembly**: Client-side C++ execution
-- **Kubernetes**: Container orchestration migration
-- **Service Mesh**: Enhanced service communication
-- **Blockchain**: Certification and achievement tracking
-- **AR/VR**: Immersive learning experiences
-
-This architecture provides a solid foundation for the C++ Mastery Hub while maintaining flexibility for future enhancements and scaling requirements.
+Decisions behind this structure are recorded in `docs/adr/`.
