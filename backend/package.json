@@ -4,8 +4,8 @@
   "description": "Backend API server for C++ Mastery Hub - Node.js/Express with TypeScript",
   "private": true,
   "author": {
-    "name": "C++ Mastery Hub Team",
-    "email": "backend@cpp-mastery-hub.com"
+    "name": "Satvik Praveen",
+    "email": "satvikpraveen707@gmail.com"
   },
   "license": "MIT",
   "main": "dist/server.js",
@@ -23,7 +23,6 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:e2e": "jest --config jest.e2e.config.js",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
@@ -41,9 +40,7 @@
     "db:deploy": "prisma migrate deploy && npm run db:seed",
     "docker:build": "docker build -t cpp-mastery-backend .",
     "docker:run": "docker run -p 8000:8000 cpp-mastery-backend",
-    "health-check": "curl -f http://localhost:8000/api/health || exit 1",
-    "benchmark": "tsx benchmarks/api-benchmark.ts",
-    "load-test": "artillery run tests/load/api-load-test.yml"
+    "health-check": "curl -f http://localhost:8000/api/health || exit 1"
   },
   "dependencies": {
     "@prisma/client": "^5.4.2",
@@ -60,26 +57,13 @@
     "jsonwebtoken": "^9.0.2",
     "joi": "^17.10.1",
     "multer": "^1.4.5-lts.1",
-    "sharp": "^0.32.5",
     "axios": "^1.5.0",
     "socket.io": "^4.7.2",
-    "redis": "^4.6.8",
     "ioredis": "^5.3.2",
-    "bull": "^4.11.3",
     "nodemailer": "^6.9.5",
-    "handlebars": "^4.7.8",
-    "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
     "uuid": "^9.0.1",
-    "lodash": "^4.17.21",
-    "moment": "^2.29.4",
-    "crypto-js": "^4.1.1",
     "dotenv": "^16.3.1",
-    "express-async-errors": "^3.1.1",
-    "express-openapi-validator": "^5.0.6",
-    "express-slow-down": "^1.6.0",
-    "http-status-codes": "^2.2.0",
-    "nanoid": "^4.0.2",
     "zod": "^3.22.2"
   },
   "devDependencies": {
@@ -93,11 +77,8 @@
     "@types/multer": "^1.4.7",
     "@types/nodemailer": "^6.4.11",
     "@types/uuid": "^9.0.4",
-    "@types/lodash": "^4.14.198",
-    "@types/crypto-js": "^4.1.2",
     "@types/jest": "^29.5.5",
     "@types/supertest": "^2.0.12",
-    "@types/swagger-jsdoc": "^6.0.1",
     "@types/swagger-ui-express": "^4.1.4",
     "@typescript-eslint/eslint-plugin": "^6.7.2",
     "@typescript-eslint/parser": "^6.7.2",
@@ -105,7 +86,6 @@
     "eslint-config-prettier": "^9.0.0",
     "eslint-plugin-import": "^2.28.1",
     "eslint-plugin-security": "^1.7.1",
-    "eslint-plugin-sonarjs": "^0.21.0",
     "jest": "^29.7.0",
     "ts-jest": "^29.1.1",
     "supertest": "^6.3.3",
@@ -114,10 +94,7 @@
     "tsc-alias": "^1.8.7",
     "prisma": "^5.4.2",
     "rimraf": "^5.0.1",
-    "prettier": "^3.0.3",
-    "artillery": "^2.0.0",
-    "autocannon": "^7.12.0",
-    "nodemon": "^3.0.1"
+    "prettier": "^3.0.3"
   },
   "jest": {
     "preset": "ts-jest",
@@ -148,7 +125,7 @@
         "statements": 80
       }
     },
-    "moduleNameMapping": {
+    "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1",
       "^@config/(.*)$": "<rootDir>/src/config/$1",
       "^@services/(.*)$": "<rootDir>/src/services/$1",
@@ -164,15 +141,5 @@
     "printWidth": 100,
     "tabWidth": 2,
     "useTabs": false
-  },
-  "nodemonConfig": {
-    "watch": [
-      "src"
-    ],
-    "ext": "ts",
-    "ignore": [
-      "src/**/*.test.ts"
-    ],
-    "exec": "tsx src/server.ts"
   }
 }
