@@ -70,7 +70,7 @@
     "rehype-raw": "^7.0.0",
     "prismjs": "^1.29.0",
     "react-syntax-highlighter": "^15.5.0",
-    "react-dropzone": "^14.2.3",
+    "react-dropzone": "^20.1.2",
     "react-virtualized-auto-sizer": "^1.0.20",
     "react-window": "^1.8.8",
     "react-window-infinite-loader": "^1.0.9",
