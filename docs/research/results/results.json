@@ -1,5 +1,5 @@
 {
-  "version": "cppmastery 2.0.0 (f3f32c26cea7)",
+  "version": "cppmastery 2.0.0 (520409529e0a)",
   "recall": 1.0,
   "expected": 21,
   "missing": 0,
@@ -10,7 +10,7 @@
       "path": "clean/raii_vector.cpp",
       "expected": {},
       "observed": {},
-      "elapsed_us": 151
+      "elapsed_us": 70
     },
     {
       "path": "smells/complex_switch.cpp",
@@ -32,7 +32,7 @@
         "readability/goto": 1,
         "modernize/c-style-cast": 2
       },
-      "elapsed_us": 74
+      "elapsed_us": 194
     },
     {
       "path": "smells/legacy_c_style.cpp",
@@ -74,8 +74,8 @@
         "modernize/null-macro": 1,
         "performance/endl": 1
       },
-      "elapsed_us": 47
+      "elapsed_us": 34
     }
   ],
-  "elapsed_s": 6.85
+  "elapsed_s": 7.15
 }

@@ -45,7 +45,7 @@ Clang ≥ 14, AppleClang ≥ 14, MSVC 19.3x). GoogleTest and Google Benchmark ar
 pinned commits; set `-DCPPMASTERY_USE_SYSTEM_GTEST=ON` to use an installed copy.
 
 ```bash
-cmake --workflow --preset dev          # Debug build + 67 tests
+cmake --workflow --preset dev          # Debug build + 70 tests (GoogleTest + CLI + HTTP adapter)
 cmake --workflow --preset asan-ubsan   # same tests under Address/UB sanitizers
 cmake --preset release && cmake --build --preset release
 ./build/release/cppmastery analyze path/to/file.cpp --json | jq .summary
@@ -97,24 +97,42 @@ stateless, const and must be total over any token stream.
 
 | Layer | Mechanism | Where |
 |---|---|---|
-| Unit | GoogleTest, 60 focused tests | `tests/*_test.cpp` |
+| Unit | GoogleTest, 58 focused tests | `tests/*_test.cpp` |
 | Property | Lexer coverage/ordering invariants over 2 000 random byte strings; prefix-truncation stability of every corpus file; pipeline totality | `tests/property_test.cpp` |
-| End-to-end | CTest drives the real CLI, including expected-failure exit codes | `tests/CMakeLists.txt` |
+| End-to-end | CTest drives the real CLI (including expected-failure exit codes) and the HTTP adapter | `tests/CMakeLists.txt`, `tools/http_adapter/test_http_adapter.py` |
 | Memory safety | ASan + UBSan preset, run in CI on every push | `CMakePresets.json` |
-| Fuzzing | libFuzzer targets for lexer, analyzer and layout parser with abort-on-invariant | `fuzz/` |
+| Fuzzing | libFuzzer targets for lexer, analyzer and layout parser with abort-on-invariant; one real invariant violation found and fixed (see `docs/research/memory-layout-model.md`) | `fuzz/` |
 | Static analysis | clang-tidy with `WarningsAsErrors: '*'` on a curated check set; `-Wall -Wextra -Wpedantic -Wconversion … -Werror` | `.clang-tidy`, `cmake/CompilerWarnings.cmake` |
 | Evaluation | Seeded-smell corpus with recall / clean-corpus precision, JSON-schema validation, benchmark ingestion | `eval/run_eval.py` |
+
+## HTTP adapter
+
+`tools/http_adapter/cppmastery_http.py` exposes the CLI over HTTP for the web backend
+(ADR-0005). It uses only the Python standard library, spawns the CLI per request with a body
+cap (`CPPMASTERY_MAX_BODY`, default 256 KiB) and a timeout (`CPPMASTERY_TIMEOUT`, default 5 s),
+validates every option, and holds no state.
+
+| Endpoint | Maps to |
+|---|---|
+| `GET /health`, `GET /version` | `cppmastery version` |
+| `GET /rules` | `cppmastery rules --json` |
+| `POST /analyze` `{code, config?}` | `cppmastery analyze --json --fail-on never -` |
+| `POST /metrics` `{code}` | `cppmastery metrics --json -` |
+| `POST /layout` `{code, abi?, pack?}` | `cppmastery layout --json -` |
+| `POST /tokens` `{code}` | `cppmastery tokens --json -` |
+| `POST /execute` | **501**, by design (no sandbox; see the threat model) |
 
 ## Docker
 
 ```bash
-docker build -t cppmastery-engine .
-echo 'int main(){ char b[8]; gets(b); }' | docker run --rm -i cppmastery-engine analyze -
+docker build --build-arg GIT_REVISION=$(git rev-parse --short=12 HEAD) -t cppmastery-engine .
+docker run --rm -p 9000:9000 cppmastery-engine                                   # HTTP adapter
+echo 'int main(){ char b[8]; gets(b); }' | docker run --rm -i cppmastery-engine analyze -   # CLI
 ```
 
 The image builds from a digest-pinned Debian base, runs the entire test suite and the
-evaluation script during `docker build`, and ships a single statically linked binary running
-as an unprivileged user.
+evaluation script during `docker build`, and ships a statically linked binary plus the adapter,
+running as an unprivileged user with a healthcheck.
 
 ## Layout
 
@@ -123,6 +141,7 @@ cpp-engine/
 ├── include/cppmastery/   public headers (one directory per module)
 ├── src/                  implementation
 ├── tools/cli/            command-line front end
+├── tools/http_adapter/   stdlib HTTP wrapper around the CLI (+ end-to-end test)
 ├── tests/                GoogleTest suites + CTest CLI tests
 ├── benchmarks/           Google Benchmark micro-benchmarks
 ├── fuzz/                 libFuzzer harnesses

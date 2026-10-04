@@ -1,5 +1,11 @@
 # Sets <out_var> to the short git hash of the source tree, or "unknown".
+# Builds without a .git directory (Docker contexts, source tarballs) can pass
+# -DCPPMASTERY_GIT_REVISION_OVERRIDE=<sha>.
 function(cppmastery_git_revision out_var)
+    if(CPPMASTERY_GIT_REVISION_OVERRIDE)
+        set(${out_var} "${CPPMASTERY_GIT_REVISION_OVERRIDE}" PARENT_SCOPE)
+        return()
+    endif()
     find_package(Git QUIET)
     set(rev "unknown")
     if(Git_FOUND)

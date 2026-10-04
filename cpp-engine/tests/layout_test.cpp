@@ -2,6 +2,8 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+
 using namespace cppmastery;
 
 TEST(Layout, ClassicPaddingExample) {
@@ -15,7 +17,7 @@ TEST(Layout, ClassicPaddingExample) {
     EXPECT_EQ(l.fields[3].offset, 16u);
     EXPECT_EQ(l.paddingBytes, 24u - 14u);
 
-    ReorderSuggestion s = suggestReorder(l, abi);
+    ReorderSuggestion s = suggestReorder(l);
     EXPECT_EQ(s.layout.size, 16u);
     EXPECT_EQ(s.bytesSaved, 8u);
     EXPECT_EQ(s.order[0].name, "d");  // highest alignment first, stable otherwise
@@ -29,7 +31,7 @@ TEST(Layout, ReorderIsNeverWorse) {
     std::vector<FieldSpec> fields{
         {"a", "short"}, {"b", "long double"}, {"c", "bool"}, {"d", "int"}, {"e", "char", 0, 3}};
     StructLayout l = computeLayout("T", fields, abi);
-    ReorderSuggestion s = suggestReorder(l, abi);
+    ReorderSuggestion s = suggestReorder(l);
     EXPECT_LE(s.layout.size, l.size);
     // Lower bound: sum of sizes rounded up to max alignment.
     std::size_t sum = 0;
@@ -108,4 +110,36 @@ struct Fwd;
     EXPECT_EQ(layouts[0].size, 8u);
     EXPECT_EQ(layouts[1].fields[1].size, 8u);  // Inner resolved from the earlier definition
     EXPECT_EQ(layouts[1].fields[1].align, 4u);
+}
+
+// Regression for a libFuzzer finding: re-resolving type names during reordering made the
+// suggestion larger than the original for self-referential or redefined structs.
+TEST(Layout, ReorderUsesResolvedSizesForSelfReferenceAndRedefinition) {
+    SourceText s(R"(
+struct S { char c; S inner; };
+struct T { char c; int x; };
+struct U { T t; char d; };
+struct T { double big; char c; };
+)");
+    TargetABI abi = TargetABI::lp64();
+    const auto layouts = layoutAll(parseStructs(s), abi);
+    ASSERT_EQ(layouts.size(), 4u);
+    for (const StructLayout& l : layouts) {
+        const ReorderSuggestion r = suggestReorder(l);
+        EXPECT_LE(r.layout.size, l.size) << l.name;
+        ASSERT_EQ(r.layout.fields.size(), l.fields.size());
+        std::size_t sum = 0;
+        for (const FieldLayout& f : l.fields) sum += f.size;
+        EXPECT_EQ(r.layout.size, (sum + l.align - 1) / l.align * l.align) << l.name;
+    }
+}
+
+TEST(Layout, ReorderPreservesPackedAlignment) {
+    const TargetABI abi = TargetABI::lp64();
+    const StructLayout packed =
+        computeLayout("P", {{"c", "char"}, {"d", "double"}, {"s", "short"}}, abi, 2);
+    const ReorderSuggestion r = suggestReorder(packed);
+    EXPECT_EQ(r.layout.align, 2u);
+    EXPECT_LE(r.layout.size, packed.size);
+    EXPECT_EQ(r.layout.size, 12u);  // 8 + 2 + 1 -> 11, rounded to 2
 }

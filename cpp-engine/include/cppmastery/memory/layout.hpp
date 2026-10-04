@@ -83,12 +83,12 @@ struct ReorderSuggestion {
 
 /// Proposes a field order that minimises total size.
 ///
-/// Fields are stably sorted by decreasing alignment. Because every C++ object's size is a multiple
-/// of its alignment and alignments are powers of two, this order yields zero interior padding, so
-/// it is optimal (the sum of field sizes rounded up to the maximum alignment is a lower bound on
-/// sizeof, and this order attains it). Ties keep the original relative order to preserve intent.
-[[nodiscard]] ReorderSuggestion suggestReorder(const StructLayout& original, const TargetABI& abi,
-                                               std::optional<std::size_t> pack = std::nullopt);
+/// Fields keep the size and alignment resolved in `original` (so the target ABI and any
+/// `#pragma pack` are already accounted for) and are stably sorted by decreasing alignment.
+/// Every C++ object's size is a multiple of its alignment and alignments are powers of two, so
+/// this order has no interior padding and attains the lower bound roundUp(sum of sizes, max
+/// alignment): it is size-optimal. Ties keep the original relative order to preserve intent.
+[[nodiscard]] ReorderSuggestion suggestReorder(const StructLayout& original);
 
 struct ParsedStruct {
     std::string name;

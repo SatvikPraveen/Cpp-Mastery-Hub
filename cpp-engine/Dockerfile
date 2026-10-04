@@ -12,9 +12,11 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake ninja-build git ca-certificates python3 \
     && rm -rf /var/lib/apt/lists/*
+ARG GIT_REVISION=unknown
 WORKDIR /src
 COPY . .
 RUN cmake -S . -B build -G Ninja \
+        -DCPPMASTERY_GIT_REVISION_OVERRIDE=${GIT_REVISION} \
         -DCMAKE_BUILD_TYPE=Release \
         -DCPPMASTERY_BUILD_TESTS=ON \
         -DCMAKE_EXE_LINKER_FLAGS="-static" \

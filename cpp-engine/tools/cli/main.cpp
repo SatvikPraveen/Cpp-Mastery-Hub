@@ -232,9 +232,7 @@ int runLayout(const Options& o) {
     const auto layouts = layoutAll(structs, abi, o.pack);
     std::vector<ReorderSuggestion> suggestions;
     suggestions.reserve(layouts.size());
-    const TargetABI suggestAbi = abi;
-    for (const StructLayout& l : layouts)
-        suggestions.push_back(suggestReorder(l, suggestAbi, o.pack));
+    for (const StructLayout& l : layouts) suggestions.push_back(suggestReorder(l));
     if (o.json) {
         std::cout << toJson(layouts, suggestions, abi) << '\n';
         return 0;

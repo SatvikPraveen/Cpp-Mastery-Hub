@@ -50,6 +50,17 @@ Stability keeps the original relative order among equal alignments so the sugges
 like the author's struct, not a shuffle. Under `#pragma pack` the same argument holds with
 the capped alignments.
 
+**Implementation note: a fuzzer-found violation.** The first implementation recomputed the
+suggested layout by resolving each field's type name again. libFuzzer (`fuzz/layout_fuzzer.cpp`,
+which aborts if a suggestion is larger than the original) found inputs where that broke the
+claim: a self-referential struct (`struct S { char c; S inner; };`, where `inner` is first
+modelled as pointer-sized) or a struct redefined later in the same input changes size between
+the two resolutions, so the "optimal" order came out *larger*. The proof above is about a fixed
+multiset of (size, alignment) pairs; the implementation now reorders exactly those resolved
+pairs and never re-resolves names. The inputs are kept as a unit test
+(`ReorderUsesResolvedSizesForSelfReferenceAndRedefinition`) and as a fuzzing seed
+(`eval/corpus/layout/self_reference.cpp`).
+
 What the reorder does **not** consider: cache-line locality, hot/cold field grouping,
 bit-field packing, and ABI compatibility of a public struct. The CLI reports `bytes_saved`;
 the decision remains the author's.

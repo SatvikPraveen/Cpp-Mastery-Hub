@@ -201,17 +201,38 @@ StructLayout computeLayout(const std::string& name, const std::vector<FieldSpec>
     return layout;
 }
 
-ReorderSuggestion suggestReorder(const StructLayout& original, const TargetABI& abi,
-                                 std::optional<std::size_t> pack) {
+ReorderSuggestion suggestReorder(const StructLayout& original) {
+    // Reorder the fields' *resolved* sizes and alignments. Re-resolving type names here would be
+    // wrong: a struct registered after this layout was computed (a later redefinition, or a
+    // self-reference resolved as pointer-sized) could change size between the two computations.
     std::vector<std::size_t> idx(original.fields.size());
     std::iota(idx.begin(), idx.end(), 0);
     std::stable_sort(idx.begin(), idx.end(), [&](std::size_t a, std::size_t b) {
         return original.fields[a].align > original.fields[b].align;
     });
+
     ReorderSuggestion s;
-    for (const std::size_t i : idx) s.order.push_back(original.fields[i].spec);
-    s.layout = computeLayout(original.name, s.order, abi, pack);
-    s.bytesSaved = original.size > s.layout.size ? original.size - s.layout.size : 0;
+    StructLayout& out = s.layout;
+    out.name = original.name;
+    out.notes = original.notes;
+    std::size_t offset = 0;
+    std::size_t maxAlign = 1;
+    for (const std::size_t i : idx) {
+        FieldLayout field = original.fields[i];
+        const std::size_t aligned = roundUp(offset, field.align);
+        field.paddingBefore = aligned - offset;
+        field.offset = aligned;
+        offset = aligned + field.size;
+        maxAlign = std::max(maxAlign, field.align);
+        out.paddingBytes += field.paddingBefore;
+        s.order.push_back(field.spec);
+        out.fields.push_back(std::move(field));
+    }
+    out.align = maxAlign;
+    out.size = out.fields.empty() ? 1 : roundUp(offset, maxAlign);
+    out.tailPadding = out.fields.empty() ? 0 : out.size - offset;
+    out.paddingBytes += out.tailPadding;
+    s.bytesSaved = original.size > out.size ? original.size - out.size : 0;
     return s;
 }
 

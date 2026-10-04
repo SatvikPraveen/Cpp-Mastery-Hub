@@ -89,7 +89,7 @@ void BM_LayoutReorder(benchmark::State& state) {
     const TargetABI abi = TargetABI::lp64();
     for (auto _ : state) {
         auto l = computeLayout("S", fields, abi);
-        auto s = suggestReorder(l, abi);
+        auto s = suggestReorder(l);
         benchmark::DoNotOptimize(s.bytesSaved);
     }
 }
