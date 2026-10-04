@@ -1,0 +1,127 @@
+name: engine
+
+on:
+  push:
+    branches: [main]
+    paths: ['cpp-engine/**', '.github/workflows/engine.yml']
+  pull_request:
+    paths: ['cpp-engine/**', '.github/workflows/engine.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: cpp-engine
+
+jobs:
+  build-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "ubuntu / gcc-13 / Release",  os: ubuntu-24.04, cc: gcc-13,   cxx: g++-13,     preset: release }
+          - { name: "ubuntu / gcc-12 / Debug",    os: ubuntu-24.04, cc: gcc-12,   cxx: g++-12,     preset: dev }
+          - { name: "ubuntu / clang-18 / Debug",  os: ubuntu-24.04, cc: clang-18, cxx: clang++-18, preset: dev }
+          - { name: "macos / AppleClang / Debug", os: macos-14,     cc: clang,    cxx: clang++,    preset: dev }
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ninja-build ${{ matrix.cxx }} python3-jsonschema
+      - name: Install toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+      - name: Configure, build, test
+        run: |
+          cmake --preset ${{ matrix.preset }}
+          cmake --build --preset ${{ matrix.preset }} --parallel
+          ctest --preset ${{ matrix.preset }}
+      - name: Evaluate corpus
+        run: python3 eval/run_eval.py --cli build/${{ matrix.preset }}/cppmastery
+      - name: Install smoke test
+        run: |
+          cmake --install build/${{ matrix.preset }} --prefix "$RUNNER_TEMP/prefix"
+          "$RUNNER_TEMP/prefix/bin/cppmastery" version
+
+  sanitizers:
+    name: ubuntu / clang-18 / ASan+UBSan
+    runs-on: ubuntu-24.04
+    env: { CC: clang-18, CXX: clang++-18 }
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build clang-18
+      - name: Build and test under sanitizers
+        env:
+          ASAN_OPTIONS: detect_leaks=1:strict_string_checks=1:check_initialization_order=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+        run: |
+          cmake --preset asan-ubsan -DCPPMASTERY_BUILD_TESTS=ON
+          cmake --build --preset asan-ubsan --parallel
+          ctest --preset asan-ubsan
+
+  static-analysis:
+    name: clang-format + clang-tidy
+    runs-on: ubuntu-24.04
+    env: { CC: clang-18, CXX: clang++-18 }
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build clang-18 clang-tidy-18 clang-format-18
+      - name: Configure (exports compile_commands.json)
+        run: cmake --preset dev
+      - name: clang-format check
+        run: |
+          find include src tools tests benchmarks fuzz -name '*.cpp' -o -name '*.hpp' \
+            | xargs clang-format-18 --dry-run --Werror
+      - name: clang-tidy (gating profile)
+        run: |
+          clang-tidy-18 -p build/dev --quiet \
+            $(find src tools -name '*.cpp') $(find tests -name '*.cpp')
+
+  benchmarks:
+    name: benchmarks (informational)
+    runs-on: ubuntu-24.04
+    env: { CC: gcc-13, CXX: g++-13 }
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build g++-13
+      - name: Build release + benchmarks
+        run: |
+          cmake --preset bench -DCPPMASTERY_BUILD_CLI=ON
+          cmake --build --preset bench --parallel
+      - name: Run benchmarks and evaluation report
+        run: |
+          mkdir -p "$RUNNER_TEMP/results"
+          python3 eval/run_eval.py --cli build/bench/cppmastery \
+            --bench build/bench/benchmarks/cppmastery_bench --out "$RUNNER_TEMP/results"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-evaluation-${{ github.sha }}
+          path: ${{ runner.temp }}/results
+          retention-days: 30
+
+  fuzz-smoke:
+    name: libFuzzer smoke (60 s per target)
+    runs-on: ubuntu-24.04
+    env: { CC: clang-18, CXX: clang++-18 }
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build clang-18
+      - name: Build fuzzers
+        run: |
+          cmake --preset fuzz
+          cmake --build --preset fuzz --parallel
+      - name: Run each fuzzer briefly with the corpus as seeds
+        run: |
+          mkdir -p "$RUNNER_TEMP/seeds" && cp eval/corpus/*/*.cpp "$RUNNER_TEMP/seeds/"
+          for f in lexer_fuzzer analyze_fuzzer layout_fuzzer; do
+            ./build/fuzz/fuzz/$f -max_total_time=60 -rss_limit_mb=2048 "$RUNNER_TEMP/seeds"
+          done
