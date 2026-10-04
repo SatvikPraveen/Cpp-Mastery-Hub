@@ -29,16 +29,67 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci --ignore-scripts
-      - name: Type-check
-        run: npm run type-check --workspace backend
-      - name: Lint
-        run: npm run lint --workspace backend
-      - name: Unit tests
-        run: npm test --workspace backend -- --ci --passWithNoTests
       - name: Prisma schema validation
         run: npx prisma validate --schema backend/prisma/schema.prisma
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      - name: Type-check (generates the Prisma client)
+        run: npm run type-check --workspace backend
+      - name: Lint
+        run: npm run lint --workspace backend
+      - name: Build the analysis engine CLI for contract tests
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build
+          cmake -S cpp-engine -B cpp-engine/build/release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCPPMASTERY_BUILD_TESTS=OFF
+          cmake --build cpp-engine/build/release --parallel
+      - name: Unit, integration and engine contract tests
+        run: npm run test:coverage --workspace backend -- --ci
+        env:
+          CPPMASTERY_BIN: ${{ github.workspace }}/cpp-engine/build/release/cppmastery
+      - name: Production build
+        run: npm run build --workspace backend
+
+  e2e:
+    name: backend end-to-end (PostgreSQL + engine)
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: e2e
+          POSTGRES_DB: cppmastery_e2e
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cppmastery_e2e"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:e2e@localhost:5432/cppmastery_e2e
+      E2E_DATABASE_URL: postgresql://postgres:e2e@localhost:5432/cppmastery_e2e
+      CPPMASTERY_BIN: ${{ github.workspace }}/cpp-engine/build/release/cppmastery
+      POSTGRES_PASSWORD: e2e
+      JWT_SECRET: ci-e2e-access-secret-0123456789abcdef0123456789
+      JWT_REFRESH_SECRET: ci-e2e-refresh-secret-0123456789abcdef012345678
+      SESSION_SECRET: ci-e2e-session-secret-0123456789abcdef01234567
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Build the analysis engine CLI
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build
+          cmake -S cpp-engine -B cpp-engine/build/release -G Ninja -DCMAKE_BUILD_TYPE=Release -DCPPMASTERY_BUILD_TESTS=OFF
+          cmake --build cpp-engine/build/release --parallel
+      - name: Generate client, migrate, seed and run the learner journey
+        working-directory: backend
+        run: |
+          npx prisma generate
+          npm run test:e2e -- --ci
+      - name: Schema and migrations agree (no drift)
+        working-directory: backend
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
 
   frontend:
     name: frontend / node ${{ matrix.node }}
