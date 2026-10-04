@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SatvikPraveen/Cpp-Mastery-Hub/cpp-engine/schemas/analysis.schema.json",
+  "title": "cppmastery analysis report",
+  "description": "Output of `cppmastery analyze --json`. Schema version is carried in `schema`.",
+  "type": "object",
+  "required": ["schema", "engine", "elapsed_us", "rules_run", "summary", "diagnostics", "metrics"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "cppmastery.analysis/1" },
+    "engine": {
+      "type": "object",
+      "required": ["version", "revision"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+        "revision": { "type": "string" }
+      }
+    },
+    "elapsed_us": { "type": "integer", "minimum": 0 },
+    "rules_run": { "type": "integer", "minimum": 0 },
+    "summary": {
+      "type": "object",
+      "required": ["errors", "warnings", "infos", "total"],
+      "properties": {
+        "errors": { "type": "integer", "minimum": 0 },
+        "warnings": { "type": "integer", "minimum": 0 },
+        "infos": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "metrics": { "$ref": "#/$defs/metrics" },
+    "rules": {
+      "type": "array",
+      "description": "Present when the rule catalog was requested (`cppmastery rules --json`).",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "category", "severity", "reference"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z]+/[a-z0-9+-]+$" },
+          "description": { "type": "string" },
+          "category": { "$ref": "#/$defs/category" },
+          "severity": { "$ref": "#/$defs/severity" },
+          "reference": { "type": "string" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "position": {
+      "type": "object",
+      "required": ["line", "column"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "severity": { "enum": ["info", "warning", "error"] },
+    "category": {
+      "enum": ["correctness", "security", "memory", "performance", "modernize", "readability", "portability", "complexity"]
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["rule", "severity", "category", "position", "length", "message", "suggestion", "reference"],
+      "properties": {
+        "rule": { "type": "string" },
+        "severity": { "$ref": "#/$defs/severity" },
+        "category": { "$ref": "#/$defs/category" },
+        "position": { "$ref": "#/$defs/position" },
+        "length": { "type": "integer", "minimum": 0 },
+        "message": { "type": "string" },
+        "suggestion": { "type": "string" },
+        "reference": { "type": "string" }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["lines", "tokens", "includes", "classes", "comment_ratio", "halstead", "cyclomatic", "max_nesting", "maintainability", "functions"],
+      "properties": {
+        "lines": {
+          "type": "object",
+          "required": ["physical", "code", "comment", "blank", "mixed"],
+          "properties": {
+            "physical": { "type": "integer", "minimum": 0 },
+            "code": { "type": "integer", "minimum": 0 },
+            "comment": { "type": "integer", "minimum": 0 },
+            "blank": { "type": "integer", "minimum": 0 },
+            "mixed": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "tokens": { "type": "integer", "minimum": 0 },
+        "includes": { "type": "integer", "minimum": 0 },
+        "classes": { "type": "integer", "minimum": 0 },
+        "comment_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "halstead": {
+          "type": "object",
+          "required": ["n1", "n2", "N1", "N2", "vocabulary", "length", "estimated_length", "volume", "difficulty", "effort", "time_seconds", "delivered_bugs"],
+          "additionalProperties": { "type": "number" }
+        },
+        "cyclomatic": {
+          "type": "object",
+          "required": ["total", "max", "mean"],
+          "properties": {
+            "total": { "type": "integer", "minimum": 0 },
+            "max": { "type": "integer", "minimum": 0 },
+            "mean": { "type": "number", "minimum": 0 }
+          }
+        },
+        "max_nesting": { "type": "integer", "minimum": 0 },
+        "maintainability": {
+          "type": "object",
+          "required": ["raw", "normalized", "with_comments"],
+          "properties": {
+            "raw": { "type": "number" },
+            "normalized": { "type": "number", "minimum": 0, "maximum": 100 },
+            "with_comments": { "type": "number" }
+          }
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "start", "end", "lines", "parameters", "statements", "cyclomatic", "cyclomatic_extended", "max_nesting"],
+            "properties": {
+              "name": { "type": "string" },
+              "start": { "$ref": "#/$defs/position" },
+              "end": { "$ref": "#/$defs/position" },
+              "lines": { "type": "integer", "minimum": 1 },
+              "parameters": { "type": "integer", "minimum": 0 },
+              "statements": { "type": "integer", "minimum": 0 },
+              "cyclomatic": { "type": "integer", "minimum": 1 },
+              "cyclomatic_extended": { "type": "integer", "minimum": 1 },
+              "max_nesting": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

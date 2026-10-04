@@ -1,0 +1,3 @@
+@PACKAGE_INIT@
+include("${CMAKE_CURRENT_LIST_DIR}/cppmasteryTargets.cmake")
+check_required_components(cppmastery)

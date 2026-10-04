@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/SatvikPraveen/Cpp-Mastery-Hub/cpp-engine/schemas/layout.schema.json",
+  "title": "cppmastery struct layout report",
+  "description": "Output of `cppmastery layout --json`.",
+  "type": "object",
+  "required": ["schema", "abi", "structs"],
+  "properties": {
+    "schema": { "const": "cppmastery.layout/1" },
+    "abi": {
+      "type": "object",
+      "required": ["name", "pointer_size"],
+      "properties": {
+        "name": { "enum": ["lp64", "llp64", "ilp32"] },
+        "pointer_size": { "type": "integer", "enum": [4, 8] }
+      }
+    },
+    "structs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["layout"],
+        "properties": {
+          "layout": { "$ref": "#/$defs/layout" },
+          "suggested": {
+            "type": "object",
+            "required": ["bytes_saved", "layout"],
+            "properties": {
+              "bytes_saved": { "type": "integer", "minimum": 0 },
+              "layout": { "$ref": "#/$defs/layout" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "layout": {
+      "type": "object",
+      "required": ["name", "size", "align", "padding_bytes", "tail_padding", "padding_ratio", "fields", "notes"],
+      "properties": {
+        "name": { "type": "string" },
+        "size": { "type": "integer", "minimum": 1 },
+        "align": { "type": "integer", "minimum": 1 },
+        "padding_bytes": { "type": "integer", "minimum": 0 },
+        "tail_padding": { "type": "integer", "minimum": 0 },
+        "padding_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type", "pointer_depth", "array_count", "offset", "size", "align", "padding_before"],
+            "properties": {
+              "name": { "type": "string" },
+              "type": { "type": "string" },
+              "pointer_depth": { "type": "integer", "minimum": 0 },
+              "array_count": { "type": "integer", "minimum": 1 },
+              "offset": { "type": "integer", "minimum": 0 },
+              "size": { "type": "integer", "minimum": 0 },
+              "align": { "type": "integer", "minimum": 1 },
+              "padding_before": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

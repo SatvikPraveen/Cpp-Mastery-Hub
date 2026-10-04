@@ -1,0 +1,18 @@
+# Test code inherits the engine profile but relaxes checks that fight test readability:
+# deterministic seeds are intentional, optional access is asserted by GoogleTest, and
+# const-correctness/raw-string nags add nothing to assertions.
+---
+InheritParentConfig: true
+Checks: >
+  -misc-const-correctness,
+  -bugprone-unchecked-optional-access,
+  -bugprone-random-generator-seed,
+  -cert-msc32-c,
+  -cert-msc51-cpp,
+  -performance-inefficient-vector-operation,
+  -performance-unnecessary-value-param,
+  -modernize-raw-string-literal,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-owning-memory,
+  -readability-function-size
+...
