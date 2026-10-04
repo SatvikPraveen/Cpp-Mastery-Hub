@@ -4,7 +4,8 @@
 #   runtime - minimal Debian image containing only the statically linked CLI
 #
 #   docker build -t cppmastery-engine cpp-engine
-#   echo 'int main(){ return 0; }' | docker run --rm -i cppmastery-engine analyze -
+#   docker run --rm -p 9000:9000 cppmastery-engine                 # HTTP adapter on :9000
+#   echo 'int main(){ return 0; }' | docker run --rm -i cppmastery-engine analyze -   # CLI
 
 FROM debian:bookworm-slim@sha256:3d5df92588469a4c503adbead0e4129ef3f88e223954011c2169073af3412098 AS build
 ARG DEBIAN_FRONTEND=noninteractive
@@ -26,8 +27,18 @@ LABEL org.opencontainers.image.title="cppmastery-engine" \
       org.opencontainers.image.source="https://github.com/SatvikPraveen/Cpp-Mastery-Hub" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.description="Dependency-free C++ analysis engine: lexer, metrics, rule engine, memory layout"
-RUN useradd --system --uid 10001 --no-create-home engine
+RUN apt-get update && apt-get install -y --no-install-recommends python3 \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd --system --uid 10001 --no-create-home engine
 COPY --from=build /src/build/cppmastery /usr/local/bin/cppmastery
+COPY --from=build /src/tools/http_adapter/cppmastery_http.py /usr/local/bin/cppmastery-http
+COPY --from=build /src/tools/http_adapter/entrypoint.sh /usr/local/bin/cppmastery-entrypoint
 USER engine
-ENTRYPOINT ["/usr/local/bin/cppmastery"]
-CMD ["--help"]
+EXPOSE 9000
+ENV CPPMASTERY_BIN=/usr/local/bin/cppmastery CPPMASTERY_PORT=9000 CPPMASTERY_HOST=0.0.0.0
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+    CMD ["python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=3).status == 200 else 1)"]
+# Default: serve the HTTP adapter. Pass CLI arguments instead to use the tool directly, e.g.
+#   docker run --rm -i cppmastery-engine analyze -
+ENTRYPOINT ["/usr/local/bin/cppmastery-entrypoint"]
+CMD ["serve"]

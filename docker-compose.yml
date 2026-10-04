@@ -1,4 +1,3 @@
-version: "3.8"
 
 services:
   # PostgreSQL Database
@@ -130,31 +129,31 @@ services:
 
   # C++ Analysis Engine
   cpp-engine:
+    # Analysis engine: statically linked `cppmastery` CLI behind a thin HTTP adapter
+    # (cpp-engine/tools/http_adapter). It never compiles or executes submitted code.
     build:
-      context: .
-      dockerfile: docker/cpp-engine/Dockerfile
-      target: production
+      context: ./cpp-engine
+      dockerfile: Dockerfile
     container_name: cpp-mastery-cpp-engine
     environment:
-      CPP_ENGINE_HOST: 0.0.0.0
-      CPP_ENGINE_PORT: 9000
-      CPP_ENGINE_LOG_LEVEL: ${CPP_ENGINE_LOG_LEVEL:-INFO}
-      CPP_ENGINE_SANDBOX: true
-      CPP_ENGINE_TIMEOUT: 30
+      CPPMASTERY_HOST: 0.0.0.0
+      CPPMASTERY_PORT: 9000
+      CPPMASTERY_MAX_BODY: 262144
+      CPPMASTERY_TIMEOUT: 5
     ports:
       - "${CPP_ENGINE_PORT:-9000}:9000"
-    volumes:
-      - cpp_engine_logs:/app/logs
-      - cpp_engine_cache:/app/cache
-      - cpp_engine_temp:/app/temp
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - cpp-mastery-network
     restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/health"]
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=3).status == 200 else 1)"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 5
     logging:
       driver: "json-file"
@@ -243,12 +242,6 @@ volumes:
     name: cpp-mastery-backend-logs
   backend_cache:
     name: cpp-mastery-backend-cache
-  cpp_engine_logs:
-    name: cpp-mastery-cpp-engine-logs
-  cpp_engine_cache:
-    name: cpp-mastery-cpp-engine-cache
-  cpp_engine_temp:
-    name: cpp-mastery-cpp-engine-temp
   nginx_logs:
     name: cpp-mastery-nginx-logs
   nginx_cache:

@@ -50,4 +50,14 @@ if(CPPMASTERY_BUILD_CLI)
     add_test(NAME cli.layout_json
              COMMAND cppmastery_cli layout --json "${CMAKE_CURRENT_SOURCE_DIR}/../eval/corpus/layout/padded.cpp")
     set_tests_properties(cli.layout_json PROPERTIES PASS_REGULAR_EXPRESSION "\"bytes_saved\":8")
+
+    find_package(Python3 COMPONENTS Interpreter QUIET)
+    if(Python3_Interpreter_FOUND)
+        add_test(NAME cli.http_adapter
+                 COMMAND ${Python3_EXECUTABLE}
+                         "${CMAKE_CURRENT_SOURCE_DIR}/../tools/http_adapter/test_http_adapter.py" -v)
+        set_tests_properties(cli.http_adapter PROPERTIES
+            ENVIRONMENT "CPPMASTERY_BIN=$<TARGET_FILE:cppmastery_cli>"
+            TIMEOUT 120)
+    endif()
 endif()

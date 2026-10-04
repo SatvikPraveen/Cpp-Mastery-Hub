@@ -129,9 +129,9 @@ def bench_table(bench: str | None) -> str:
         rows.append(f"| `{b['name']}` | {us:,.1f} | {mbps:,.1f} |" if mbps else f"| `{b['name']}` | {us:,.1f} | – |")
     ctx = data["context"]
     rows.append("")
-    rows.append(f"_{ctx['num_cpus']} CPUs @ {ctx['mhz_per_cpu']} MHz, "
-                f"{'release' if not ctx.get('library_build_type','').startswith('debug') else 'debug'} build, "
-                f"{platform.platform()}._")
+    rows.append(f"_{ctx['num_cpus']} logical CPUs, "
+                f"{'release' if not ctx.get('library_build_type', '').startswith('debug') else 'debug'} build, "
+                f"{platform.platform()}; single-threaded, wall-clock time per iteration._")
     return "\n".join(rows) + "\n"
 
 

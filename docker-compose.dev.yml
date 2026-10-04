@@ -1,4 +1,3 @@
-version: "3.8"
 
 services:
   # PostgreSQL Database (Development)
@@ -87,29 +86,24 @@ services:
   # C++ Analysis Engine (Development)
   cpp-engine:
     build:
-      context: .
-      dockerfile: docker/cpp-engine/Dockerfile
-      target: development
+      context: ./cpp-engine
+      dockerfile: Dockerfile
     container_name: cpp-mastery-cpp-engine-dev
     environment:
-      CPP_ENGINE_HOST: 0.0.0.0
-      CPP_ENGINE_PORT: 9000
-      CPP_ENGINE_LOG_LEVEL: DEBUG
-      CPP_ENGINE_SANDBOX: false
-      CPP_ENGINE_TIMEOUT: 60
+      CPPMASTERY_HOST: 0.0.0.0
+      CPPMASTERY_PORT: 9000
+      CPPMASTERY_MAX_BODY: 1048576
+      CPPMASTERY_TIMEOUT: 10
     ports:
       - "${CPP_ENGINE_PORT:-9000}:9000"
-    volumes:
-      - ./cpp-engine:/app
-      - cpp_engine_dev_logs:/app/logs
-      - cpp_engine_dev_cache:/app/cache
-      - cpp_engine_dev_temp:/app/temp
-      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - cpp-mastery-dev-network
     restart: unless-stopped
-    stdin_open: true
-    tty: true
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:9000/health', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   # Frontend (Development with hot reload)
   frontend:
@@ -265,12 +259,6 @@ volumes:
     name: cpp-mastery-backend-dev-logs
   backend_dev_uploads:
     name: cpp-mastery-backend-dev-uploads
-  cpp_engine_dev_logs:
-    name: cpp-mastery-cpp-engine-dev-logs
-  cpp_engine_dev_cache:
-    name: cpp-mastery-cpp-engine-dev-cache
-  cpp_engine_dev_temp:
-    name: cpp-mastery-cpp-engine-dev-temp
   pgadmin_dev_data:
     name: cpp-mastery-pgadmin-dev-data
   redis_insight_dev_data:
