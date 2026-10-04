@@ -8,13 +8,13 @@ dotenv.config();
 const envSchema = z.object({
   // Server Configuration
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.string().transform(Number).default(8000),
+  PORT: z.coerce.number().int().positive().default(8000),
   HOST: z.string().default('localhost'),
   
   // Database Configuration
   DATABASE_URL: z.string().min(1),
   POSTGRES_HOST: z.string().default('localhost'),
-  POSTGRES_PORT: z.string().transform(Number).default(5432),
+  POSTGRES_PORT: z.coerce.number().default(5432),
   POSTGRES_DB: z.string().default('cpp_mastery_hub'),
   POSTGRES_USER: z.string().default('postgres'),
   POSTGRES_PASSWORD: z.string().min(1),
@@ -22,7 +22,7 @@ const envSchema = z.object({
   // Redis Configuration
   REDIS_URL: z.string().optional(),
   REDIS_HOST: z.string().default('localhost'),
-  REDIS_PORT: z.string().transform(Number).default(6379),
+  REDIS_PORT: z.coerce.number().default(6379),
   REDIS_PASSWORD: z.string().optional(),
   
   // MongoDB Configuration (for community features)
@@ -42,52 +42,55 @@ const envSchema = z.object({
   
   // Email Configuration
   SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.string().transform(Number).optional(),
+  SMTP_PORT: z.coerce.number().int().positive().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   EMAIL_FROM: z.string().email().optional(),
   
   // C++ Engine Configuration
   CPP_ENGINE_URL: z.string().default('http://localhost:9000'),
-  CPP_ENGINE_TIMEOUT: z.string().transform(Number).default(30000),
+  CPP_ENGINE_TIMEOUT: z.coerce.number().default(30000),
   CPP_ENGINE_API_KEY: z.string().optional(),
   
   // File Upload Configuration
-  UPLOAD_MAX_SIZE: z.string().transform(Number).default(10485760), // 10MB
+  UPLOAD_MAX_SIZE: z.coerce.number().default(10485760), // 10MB
   UPLOAD_ALLOWED_TYPES: z.string().default('cpp,hpp,h,c,cc,cxx'),
   
   // Security Configuration
-  BCRYPT_ROUNDS: z.string().transform(Number).default(12),
+  BCRYPT_ROUNDS: z.coerce.number().default(12),
   SESSION_SECRET: z.string().min(32),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   
   // Rate Limiting
-  RATE_LIMIT_WINDOW: z.string().transform(Number).default(900000), // 15 minutes
-  RATE_LIMIT_MAX: z.string().transform(Number).default(100),
+  RATE_LIMIT_WINDOW: z.coerce.number().default(900000), // 15 minutes
+  RATE_LIMIT_MAX: z.coerce.number().default(100),
   
   // Logging Configuration
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   LOG_FILE: z.string().default('logs/app.log'),
   
   // Analytics
-  ANALYTICS_ENABLED: z.string().transform(Boolean).default(true),
+  ANALYTICS_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
   MIXPANEL_TOKEN: z.string().optional(),
   
   // Frontend URL
   FRONTEND_URL: z.string().default('http://localhost:3000'),
   
   // WebSocket Configuration
-  WS_HEARTBEAT_INTERVAL: z.string().transform(Number).default(30000),
-  WS_CONNECTION_TIMEOUT: z.string().transform(Number).default(60000),
+  WS_HEARTBEAT_INTERVAL: z.coerce.number().default(30000),
+  WS_CONNECTION_TIMEOUT: z.coerce.number().default(60000),
 });
 
 // Validate and parse environment variables
-const parseEnv = () => {
+const parseEnv = (): z.infer<typeof envSchema> => {
   try {
     return envSchema.parse(process.env);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const missingVars = error.errors.map(err => err.path.join('.')).join(', ');
+      const missingVars = error.errors.map((err) => err.path.join('.')).join(', ');
       throw new Error(`Missing or invalid environment variables: ${missingVars}`);
     }
     throw error;
@@ -160,7 +163,7 @@ export const emailConfig = {
     user: config.SMTP_USER,
     pass: config.SMTP_PASS,
   } : undefined,
-  from: config.EMAIL_FROM || 'noreply@cppmastery.com',
+  from: config.EMAIL_FROM ?? 'noreply@cppmastery.com',
 };
 
 // C++ Engine configuration
@@ -209,8 +212,8 @@ export const wsConfig = {
 // Feature flags
 export const featureFlags = {
   analyticsEnabled: config.ANALYTICS_ENABLED,
-  oauthEnabled: !!(config.GOOGLE_CLIENT_ID || config.GITHUB_CLIENT_ID),
-  emailEnabled: !!(config.SMTP_HOST && config.SMTP_USER),
+  oauthEnabled: Boolean(config.GOOGLE_CLIENT_ID ?? config.GITHUB_CLIENT_ID),
+  emailEnabled: Boolean(config.SMTP_HOST && config.SMTP_USER),
   cppEngineEnabled: true,
   communityEnabled: true,
   adminPanelEnabled: true,
@@ -238,9 +241,24 @@ export const envConfig = {
   },
 }[config.NODE_ENV];
 
-// Export default configuration object
+// Logging configuration
+export const loggingConfig = {
+  level: config.LOG_LEVEL,
+  file: config.LOG_FILE,
+  maxSize: '20m',
+  maxFiles: '14d',
+};
+
+// Export default configuration object (raw env values plus grouped, camelCase views)
 export default {
   ...config,
+  nodeEnv: config.NODE_ENV,
+  port: config.PORT,
+  cors: {
+    origin: securityConfig.corsOrigin,
+  },
+  rateLimit: securityConfig.rateLimit,
+  logging: loggingConfig,
   db: dbConfig,
   redis: redisConfig,
   jwt: jwtConfig,
@@ -255,7 +273,7 @@ export default {
 };
 
 // Configuration validation helper
-export const validateConfig = () => {
+export const validateConfig = (): true => {
   const requiredForProduction = [
     'DATABASE_URL',
     'JWT_SECRET',
@@ -264,7 +282,7 @@ export const validateConfig = () => {
   ];
 
   if (config.NODE_ENV === 'production') {
-    const missing = requiredForProduction.filter(key => !process.env[key]);
+    const missing = requiredForProduction.filter((key) => !process.env[key]);
     if (missing.length > 0) {
       throw new Error(`Missing required production environment variables: ${missing.join(', ')}`);
     }
@@ -277,11 +295,14 @@ export const validateConfig = () => {
 if (require.main === module) {
   try {
     validateConfig();
-    console.log('✅ Configuration validated successfully');
-    console.log(`🔧 Environment: ${config.NODE_ENV}`);
-    console.log(`🚀 Server will run on: ${config.HOST}:${config.PORT}`);
+    // eslint-disable-next-line no-console
+    console.log(`Configuration valid (env=${config.NODE_ENV}, ${config.HOST}:${config.PORT})`);
   } catch (error) {
-    console.error('❌ Configuration validation failed:', error.message);
+    // eslint-disable-next-line no-console
+    console.error(
+      'Configuration validation failed:',
+      error instanceof Error ? error.message : String(error)
+    );
     process.exit(1);
   }
 }

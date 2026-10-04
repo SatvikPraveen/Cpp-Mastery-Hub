@@ -1,16 +1,18 @@
 /**
  * Custom API Error class for structured error handling
  */
+export type ErrorDetails = Record<string, unknown>;
+
 export class ApiError extends Error {
   public readonly statusCode: number;
   public readonly isOperational: boolean;
-  public readonly details?: any;
+  public readonly details: ErrorDetails | undefined;
 
   constructor(
     statusCode: number,
     message: string,
-    details?: any,
-    isOperational: boolean = true
+    details?: ErrorDetails,
+    isOperational = true
   ) {
     super(message);
     
@@ -27,7 +29,7 @@ export class ApiError extends Error {
  * Validation Error for request validation failures
  */
 export class ValidationError extends ApiError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: ErrorDetails) {
     super(400, message, details);
   }
 }
@@ -36,7 +38,7 @@ export class ValidationError extends ApiError {
  * Authentication Error for auth failures
  */
 export class AuthenticationError extends ApiError {
-  constructor(message: string = 'Authentication failed') {
+  constructor(message = 'Authentication failed') {
     super(401, message);
   }
 }
@@ -45,7 +47,7 @@ export class AuthenticationError extends ApiError {
  * Authorization Error for permission failures
  */
 export class AuthorizationError extends ApiError {
-  constructor(message: string = 'Access denied') {
+  constructor(message = 'Access denied') {
     super(403, message);
   }
 }
@@ -54,7 +56,7 @@ export class AuthorizationError extends ApiError {
  * Not Found Error for missing resources
  */
 export class NotFoundError extends ApiError {
-  constructor(resource: string = 'Resource') {
+  constructor(resource = 'Resource') {
     super(404, `${resource} not found`);
   }
 }
@@ -72,7 +74,7 @@ export class ConflictError extends ApiError {
  * Rate Limit Error for rate limiting
  */
 export class RateLimitError extends ApiError {
-  constructor(message: string = 'Rate limit exceeded') {
+  constructor(message = 'Rate limit exceeded') {
     super(429, message);
   }
 }
@@ -81,7 +83,7 @@ export class RateLimitError extends ApiError {
  * Service Error for external service failures
  */
 export class ServiceError extends ApiError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: ErrorDetails) {
     super(502, message, details);
   }
 }
@@ -90,7 +92,7 @@ export class ServiceError extends ApiError {
  * Database Error for database-related issues
  */
 export class DatabaseError extends ApiError {
-  constructor(message: string, details?: any) {
+  constructor(message: string, details?: ErrorDetails) {
     super(500, `Database error: ${message}`, details);
   }
 }
@@ -104,10 +106,10 @@ export interface ErrorResponse {
     message: string;
     code: string;
     statusCode: number;
-    details?: any;
+    details?: ErrorDetails | undefined;
     timestamp: string;
     path: string;
-    requestId?: string;
+    requestId?: string | undefined;
   };
 }
 
@@ -201,14 +203,13 @@ export function createErrorResponse(
 ): ErrorResponse {
   const isApiError = error instanceof ApiError;
   const statusCode = isApiError ? error.statusCode : 500;
-  
+  const detailCode = isApiError ? error.details?.['code'] : undefined;
+
   return {
     success: false,
     error: {
       message: error.message,
-      code: isApiError && error.details?.code 
-        ? error.details.code 
-        : getErrorCodeForStatus(statusCode),
+      code: typeof detailCode === 'string' ? detailCode : getErrorCodeForStatus(statusCode),
       statusCode,
       details: isApiError ? error.details : undefined,
       timestamp: new Date().toISOString(),
@@ -231,7 +232,7 @@ export function isOperationalError(error: Error): boolean {
 /**
  * Sanitize error message for client response
  */
-export function sanitizeErrorMessage(error: Error, isProduction: boolean = false): string {
+export function sanitizeErrorMessage(error: Error, isProduction = false): string {
   if (error instanceof ApiError) {
     return error.message;
   }
@@ -275,14 +276,14 @@ export interface StructuredError {
   statusCode: number;
   code: string;
   severity: ErrorSeverity;
-  details?: any;
-  stack?: string;
-  userId?: string;
-  requestId?: string;
-  path?: string;
-  method?: string;
-  userAgent?: string;
-  ip?: string;
+  details?: ErrorDetails | undefined;
+  stack?: string | undefined;
+  userId?: string | undefined;
+  requestId?: string | undefined;
+  path?: string | undefined;
+  method?: string | undefined;
+  userAgent?: string | undefined;
+  ip?: string | undefined;
   timestamp: string;
 }
 
@@ -292,12 +293,12 @@ export interface StructuredError {
 export function structureError(
   error: Error | ApiError,
   context?: {
-    userId?: string;
-    requestId?: string;
-    path?: string;
-    method?: string;
-    userAgent?: string;
-    ip?: string;
+    userId?: string | undefined;
+    requestId?: string | undefined;
+    path?: string | undefined;
+    method?: string | undefined;
+    userAgent?: string | undefined;
+    ip?: string | undefined;
   }
 ): StructuredError {
   const isApiError = error instanceof ApiError;
@@ -333,28 +334,42 @@ export enum ErrorCategory {
 /**
  * Get error category from error code
  */
+const ERROR_CODE_CATEGORIES: ReadonlyMap<string, ErrorCategory> = new Map<string, ErrorCategory>([
+  [ErrorCodes.VALIDATION_FAILED, ErrorCategory.VALIDATION],
+  [ErrorCodes.INVALID_INPUT, ErrorCategory.VALIDATION],
+  [ErrorCodes.MISSING_REQUIRED_FIELD, ErrorCategory.VALIDATION],
+  [ErrorCodes.INVALID_FORMAT, ErrorCategory.VALIDATION],
+  [ErrorCodes.INVALID_CREDENTIALS, ErrorCategory.AUTHENTICATION],
+  [ErrorCodes.TOKEN_EXPIRED, ErrorCategory.AUTHENTICATION],
+  [ErrorCodes.TOKEN_INVALID, ErrorCategory.AUTHENTICATION],
+  [ErrorCodes.ACCOUNT_LOCKED, ErrorCategory.AUTHENTICATION],
+  [ErrorCodes.ACCOUNT_DEACTIVATED, ErrorCategory.AUTHENTICATION],
+  [ErrorCodes.INSUFFICIENT_PERMISSIONS, ErrorCategory.AUTHORIZATION],
+  [ErrorCodes.RESOURCE_ACCESS_DENIED, ErrorCategory.AUTHORIZATION],
+  [ErrorCodes.OPERATION_NOT_ALLOWED, ErrorCategory.AUTHORIZATION],
+  [ErrorCodes.RESOURCE_NOT_FOUND, ErrorCategory.RESOURCE],
+  [ErrorCodes.RESOURCE_ALREADY_EXISTS, ErrorCategory.RESOURCE],
+  [ErrorCodes.RESOURCE_CONFLICT, ErrorCategory.RESOURCE],
+  [ErrorCodes.RATE_LIMIT_EXCEEDED, ErrorCategory.RATE_LIMIT],
+  [ErrorCodes.QUOTA_EXCEEDED, ErrorCategory.RATE_LIMIT],
+  [ErrorCodes.EXTERNAL_SERVICE_ERROR, ErrorCategory.EXTERNAL_SERVICE],
+  [ErrorCodes.CPP_ENGINE_UNAVAILABLE, ErrorCategory.EXTERNAL_SERVICE],
+  [ErrorCodes.DATABASE_CONNECTION_ERROR, ErrorCategory.EXTERNAL_SERVICE],
+  [ErrorCodes.COMPILATION_FAILED, ErrorCategory.CODE_EXECUTION],
+  [ErrorCodes.EXECUTION_TIMEOUT, ErrorCategory.CODE_EXECUTION],
+  [ErrorCodes.EXECUTION_ERROR, ErrorCategory.CODE_EXECUTION],
+  [ErrorCodes.MEMORY_LIMIT_EXCEEDED, ErrorCategory.CODE_EXECUTION],
+  [ErrorCodes.UNSAFE_CODE_DETECTED, ErrorCategory.CODE_EXECUTION],
+  [ErrorCodes.FILE_TOO_LARGE, ErrorCategory.FILE_PROCESSING],
+  [ErrorCodes.INVALID_FILE_TYPE, ErrorCategory.FILE_PROCESSING],
+  [ErrorCodes.FILE_UPLOAD_FAILED, ErrorCategory.FILE_PROCESSING],
+]);
+
+/**
+ * Get error category from error code (one of the string codes in `ErrorCodes`).
+ */
 export function getErrorCategory(code: string): ErrorCategory {
-  const codeNumber = parseInt(code.split('_')[0], 10);
-  
-  if (codeNumber >= 1000 && codeNumber < 2000) {
-    return ErrorCategory.VALIDATION;
-  } else if (codeNumber >= 2000 && codeNumber < 3000) {
-    return ErrorCategory.AUTHENTICATION;
-  } else if (codeNumber >= 3000 && codeNumber < 4000) {
-    return ErrorCategory.AUTHORIZATION;
-  } else if (codeNumber >= 4000 && codeNumber < 5000) {
-    return ErrorCategory.RESOURCE;
-  } else if (codeNumber >= 5000 && codeNumber < 6000) {
-    return ErrorCategory.RATE_LIMIT;
-  } else if (codeNumber >= 6000 && codeNumber < 7000) {
-    return ErrorCategory.EXTERNAL_SERVICE;
-  } else if (codeNumber >= 7000 && codeNumber < 8000) {
-    return ErrorCategory.CODE_EXECUTION;
-  } else if (codeNumber >= 8000 && codeNumber < 9000) {
-    return ErrorCategory.FILE_PROCESSING;
-  } else {
-    return ErrorCategory.SYSTEM;
-  }
+  return ERROR_CODE_CATEGORIES.get(code) ?? ErrorCategory.SYSTEM;
 }
 
 /**
@@ -389,7 +404,10 @@ export class CompilationError extends ApiError {
 }
 
 export class FileUploadError extends ApiError {
-  constructor(message: string, public readonly fileDetails?: any) {
+  constructor(
+    message: string,
+    public readonly fileDetails?: ErrorDetails
+  ) {
     super(400, message, { code: ErrorCodes.FILE_UPLOAD_FAILED, ...fileDetails });
   }
 }
@@ -397,10 +415,10 @@ export class FileUploadError extends ApiError {
 /**
  * Error wrapper for async operations
  */
-export function wrapAsync<T>(
-  fn: (...args: any[]) => Promise<T>
-): (...args: any[]) => Promise<T> {
-  return async (...args: any[]) => {
+export function wrapAsync<A extends unknown[], T>(
+  fn: (...args: A) => Promise<T>
+): (...args: A) => Promise<T> {
+  return async (...args: A) => {
     try {
       return await fn(...args);
     } catch (error) {
@@ -408,7 +426,23 @@ export function wrapAsync<T>(
       if (error instanceof ApiError) {
         throw error;
       }
-      throw new ApiError(500, error.message, { originalError: error.name });
+      if (error instanceof Error) {
+        throw new ApiError(500, error.message, { originalError: error.name });
+      }
+      throw new ApiError(500, 'Unknown error', { originalError: String(error) });
     }
   };
+}
+
+/**
+ * Extract a human-readable message from an unknown thrown value.
+ */
+export function getErrorMessage(error: unknown, fallback = 'Unknown error'): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  return fallback;
 }

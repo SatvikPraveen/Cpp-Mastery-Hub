@@ -14,12 +14,6 @@ interface RateLimitOptions {
   store?: RateLimitStore;    // Custom store implementation
 }
 
-interface RateLimitInfo {
-  totalHits: number;
-  totalHitsPerUser?: number;
-  resetTime: Date;
-  remainingRequests: number;
-}
 
 interface RateLimitStore {
   increment(key: string): Promise<{ totalHits: number; resetTime: Date }>;
@@ -86,13 +80,13 @@ export class MemoryStore implements RateLimitStore {
   constructor(windowMs: number) {
     this.windowMs = windowMs;
     
-    // Clean up expired entries every minute
+    // Clean up expired entries every minute. unref() so the timer never keeps the process alive.
     setInterval(() => {
       this.cleanup();
-    }, 60000);
+    }, 60000).unref();
   }
 
-  async increment(key: string): Promise<{ totalHits: number; resetTime: Date }> {
+  increment(key: string): Promise<{ totalHits: number; resetTime: Date }> {
     const now = Date.now();
     const window = Math.floor(now / this.windowMs);
     const storeKey = `${key}:${window}`;
@@ -101,14 +95,14 @@ export class MemoryStore implements RateLimitStore {
     const existing = this.hits.get(storeKey);
     if (existing) {
       existing.count++;
-      return { totalHits: existing.count, resetTime: existing.resetTime };
+      return Promise.resolve({ totalHits: existing.count, resetTime: existing.resetTime });
     } else {
       this.hits.set(storeKey, { count: 1, resetTime });
-      return { totalHits: 1, resetTime };
+      return Promise.resolve({ totalHits: 1, resetTime });
     }
   }
 
-  async decrement(key: string): Promise<void> {
+  decrement(key: string): Promise<void> {
     const now = Date.now();
     const window = Math.floor(now / this.windowMs);
     const storeKey = `${key}:${window}`;
@@ -117,9 +111,10 @@ export class MemoryStore implements RateLimitStore {
     if (existing && existing.count > 0) {
       existing.count--;
     }
+    return Promise.resolve();
   }
 
-  async resetKey(key: string): Promise<void> {
+  resetKey(key: string): Promise<void> {
     const keysToDelete: string[] = [];
     for (const [storeKey] of this.hits) {
       if (storeKey.startsWith(`${key}:`)) {
@@ -127,10 +122,12 @@ export class MemoryStore implements RateLimitStore {
       }
     }
     keysToDelete.forEach(k => this.hits.delete(k));
+    return Promise.resolve();
   }
 
-  async resetAll(): Promise<void> {
+  resetAll(): Promise<void> {
     this.hits.clear();
+    return Promise.resolve();
   }
 
   private cleanup(): void {
@@ -203,7 +200,7 @@ export function createRateLimit(options: RateLimitOptions) {
     statusCode = 429,
     skipSuccessfulRequests = false,
     skipFailedRequests = false,
-    keyGenerator = (req: Request) => req.ip,
+    keyGenerator = (req: Request) => req.ip ?? 'unknown',
     skip = () => false,
     onLimitReached,
     store
@@ -249,7 +246,7 @@ export function createRateLimit(options: RateLimitOptions) {
         // Log rate limit violation
         console.warn(`Rate limit exceeded for ${key}: ${totalHits}/${maxRequests} requests`);
 
-        return res.status(statusCode).json({
+        res.status(statusCode).json({
           error: 'Rate limit exceeded',
           message,
           retryAfter,
@@ -258,6 +255,7 @@ export function createRateLimit(options: RateLimitOptions) {
           used: totalHits,
           resetTime: resetTime.toISOString()
         });
+        return;
       }
 
       // Handle response to conditionally count requests
@@ -297,7 +295,7 @@ export const passwordResetRateLimit = createRateLimit(rateLimitConfigs.passwordR
 export const createIPRateLimit = (options: Omit<RateLimitOptions, 'keyGenerator'>) =>
   createRateLimit({
     ...options,
-    keyGenerator: (req: Request) => req.ip
+    keyGenerator: (req: Request) => req.ip ?? 'unknown'
   });
 
 // User-based rate limiting
@@ -315,8 +313,9 @@ export const createAPIKeyRateLimit = (options: Omit<RateLimitOptions, 'keyGenera
   createRateLimit({
     ...options,
     keyGenerator: (req: Request) => {
-      const apiKey = req.headers['x-api-key'] || req.query.api_key;
-      return `api_key:${apiKey || req.ip}`;
+      // Header only: API keys in query strings end up in access logs.
+      const apiKey = req.get('x-api-key');
+      return apiKey ? `api_key:${apiKey}` : `ip:${req.ip ?? 'unknown'}`;
     }
   });
 
@@ -399,14 +398,14 @@ export const createSlidingWindowRateLimit = (options: RateLimitOptions) => {
 // Rate limit bypass for specific IPs (whitelist)
 export const createWhitelistBypass = (whitelist: string[]) => {
   return (req: Request): boolean => {
-    return whitelist.includes(req.ip);
+    return req.ip !== undefined && whitelist.includes(req.ip);
   };
 };
 
 // Rate limit bypass for specific user roles
 export const createRoleBypass = (allowedRoles: string[]) => {
   return (req: Request): boolean => {
-    return req.user && allowedRoles.includes(req.user.role);
+    return req.user !== undefined && allowedRoles.includes(req.user.role);
   };
 };
 

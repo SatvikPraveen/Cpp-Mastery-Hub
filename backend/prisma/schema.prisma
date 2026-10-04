@@ -2,7 +2,7 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "linux-musl", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
 }
 
@@ -13,44 +13,49 @@ datasource db {
 
 // User management
 model User {
-  id                String              @id @default(cuid())
-  email             String              @unique
-  username          String              @unique
-  passwordHash      String              @map("password_hash")
-  firstName         String?             @map("first_name")
-  lastName          String?             @map("last_name")
-  bio               String?
-  avatarUrl         String?             @map("avatar_url")
-  website           String?
-  location          String?
-  skills            String[]
-  role              UserRole            @default(USER)
-  isActive          Boolean             @default(true) @map("is_active")
-  isVerified        Boolean             @default(false) @map("is_verified")
-  emailVerifiedAt   DateTime?           @map("email_verified_at")
-  lastActiveAt      DateTime?           @map("last_active_at")
-  joinedAt          DateTime            @default(now()) @map("joined_at")
-  createdAt         DateTime            @default(now()) @map("created_at")
-  updatedAt         DateTime            @updatedAt @map("updated_at")
-  deactivatedAt     DateTime?           @map("deactivated_at")
-  deactivationReason String?            @map("deactivation_reason")
-  deactivationFeedback String?          @map("deactivation_feedback")
-  settings          Json?
-  tokenVersion      Int                 @default(0) @map("token_version")
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  username             String    @unique
+  passwordHash         String    @map("password_hash")
+  firstName            String?   @map("first_name")
+  lastName             String?   @map("last_name")
+  bio                  String?
+  avatarUrl            String?   @map("avatar_url")
+  website              String?
+  location             String?
+  skills               String[]
+  role                 UserRole  @default(USER)
+  isActive             Boolean   @default(true) @map("is_active")
+  isVerified           Boolean   @default(false) @map("is_verified")
+  emailVerifiedAt      DateTime? @map("email_verified_at")
+  lastActiveAt         DateTime? @map("last_active_at")
+  joinedAt             DateTime  @default(now()) @map("joined_at")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  deactivatedAt        DateTime? @map("deactivated_at")
+  deactivationReason   String?   @map("deactivation_reason")
+  deactivationFeedback String?   @map("deactivation_feedback")
+  settings             Json?
+  tokenVersion         Int       @default(0) @map("token_version")
 
   // Relationships
-  codeSnippets      CodeSnippet[]
-  codeExecutions    CodeExecution[]
-  forumPosts        ForumPost[]
-  forumComments     ForumComment[]
-  userAchievements  UserAchievement[]
-  enrollments       CourseEnrollment[]
-  lessonProgress    LessonProgress[]
+  codeSnippets        CodeSnippet[]
+  snippetLikes        SnippetLike[]
+  codeExecutions      CodeExecution[]
+  forumPosts          ForumPost[]
+  forumComments       ForumComment[]
+  userAchievements    UserAchievement[]
+  enrollments         CourseEnrollment[]
+  lessonProgress      LessonProgress[]
+  userProgress        UserProgress[]
   exerciseSubmissions ExerciseSubmission[]
-  quizAttempts      QuizAttempt[]
-  notifications     Notification[]
-  sessions          UserSession[]
-  apiKeys           ApiKey[]
+  quizAttempts        QuizAttempt[]
+  notifications       Notification[]
+  sessions            UserSession[]
+  apiKeys             ApiKey[]
+  postLikes           ForumPostLike[]
+  postReports         PostReport[]         @relation("Reporter")
+  resolvedReports     PostReport[]         @relation("Resolver")
 
   @@map("users")
 }
@@ -64,16 +69,16 @@ enum UserRole {
 
 // Authentication and sessions
 model UserSession {
-  id           String    @id @default(cuid())
-  userId       String    @map("user_id")
-  token        String    @unique
-  refreshToken String?   @unique @map("refresh_token")
-  expiresAt    DateTime  @map("expires_at")
-  createdAt    DateTime  @default(now()) @map("created_at")
-  lastUsedAt   DateTime  @default(now()) @map("last_used_at")
-  ipAddress    String?   @map("ip_address")
-  userAgent    String?   @map("user_agent")
-  isActive     Boolean   @default(true) @map("is_active")
+  id           String   @id @default(cuid())
+  userId       String   @map("user_id")
+  token        String   @unique
+  refreshToken String?  @unique @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastUsedAt   DateTime @default(now()) @map("last_used_at")
+  ipAddress    String?  @map("ip_address")
+  userAgent    String?  @map("user_agent")
+  isActive     Boolean  @default(true) @map("is_active")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -85,7 +90,7 @@ model ApiKey {
   userId      String    @map("user_id")
   name        String
   keyHash     String    @unique @map("key_hash")
-  permissions String[]  // List of allowed operations
+  permissions String[] // List of allowed operations
   lastUsedAt  DateTime? @map("last_used_at")
   expiresAt   DateTime? @map("expires_at")
   createdAt   DateTime  @default(now()) @map("created_at")
@@ -98,20 +103,21 @@ model ApiKey {
 
 // Code snippets and execution
 model CodeSnippet {
-  id          String    @id @default(cuid())
-  userId      String    @map("user_id")
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
   title       String
   description String?
   code        String
   language    String
   tags        String[]
-  isPublic    Boolean   @default(false) @map("is_public")
-  views       Int       @default(0)
-  likes       Int       @default(0)
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  isPublic    Boolean  @default(false) @map("is_public")
+  views       Int      @default(0)
+  likes       Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  likedBy SnippetLike[]
 
   @@index([userId])
   @@index([isPublic])
@@ -120,22 +126,37 @@ model CodeSnippet {
   @@map("code_snippets")
 }
 
+// One row per (user, snippet) so a like cannot be counted twice. `CodeSnippet.likes` is a
+// denormalised counter kept in step inside the same transaction.
+model SnippetLike {
+  userId    String   @map("user_id")
+  snippetId String   @map("snippet_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snippet CodeSnippet @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+
+  @@id([userId, snippetId])
+  @@index([snippetId])
+  @@map("snippet_likes")
+}
+
 model CodeExecution {
-  id              String    @id @default(cuid())
-  userId          String?   @map("user_id")
-  code            String
-  language        String
-  input           String?
-  output          String?
-  error           String?
-  compilationOutput String? @map("compilation_output")
-  executionTime   Float?    @map("execution_time")
-  memoryUsed      Int?      @map("memory_used")
-  exitCode        Int?      @map("exit_code")
-  success         Boolean   @default(false)
-  ipAddress       String?   @map("ip_address")
-  userAgent       String?   @map("user_agent")
-  executedAt      DateTime  @default(now()) @map("executed_at")
+  id                String   @id @default(cuid())
+  userId            String?  @map("user_id")
+  code              String
+  language          String
+  input             String?
+  output            String?
+  error             String?
+  compilationOutput String?  @map("compilation_output")
+  executionTime     Float?   @map("execution_time")
+  memoryUsed        Int?     @map("memory_used")
+  exitCode          Int?     @map("exit_code")
+  success           Boolean  @default(false)
+  ipAddress         String?  @map("ip_address")
+  userAgent         String?  @map("user_agent")
+  executedAt        DateTime @default(now()) @map("executed_at")
 
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
@@ -147,28 +168,28 @@ model CodeExecution {
 
 // Learning content
 model Course {
-  id              String    @id @default(cuid())
-  title           String
-  description     String
-  shortDescription String?  @map("short_description")
-  difficulty      Difficulty
-  category        String
-  prerequisites   String[]
-  tags            String[]
-  thumbnailUrl    String?   @map("thumbnail_url")
-  estimatedHours  Int?      @map("estimated_hours")
-  totalLessons    Int       @default(0) @map("total_lessons")
-  isPublished     Boolean   @default(false) @map("is_published")
-  price           Decimal?  @db.Decimal(10, 2)
-  enrollmentCount Int       @default(0) @map("enrollment_count")
-  rating          Float?
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  id               String     @id @default(cuid())
+  title            String
+  description      String
+  shortDescription String?    @map("short_description")
+  difficulty       Difficulty
+  category         String
+  prerequisites    String[]
+  tags             String[]
+  thumbnailUrl     String?    @map("thumbnail_url")
+  estimatedHours   Int?       @map("estimated_hours")
+  totalLessons     Int        @default(0) @map("total_lessons")
+  isPublished      Boolean    @default(false) @map("is_published")
+  price            Decimal?   @db.Decimal(10, 2)
+  enrollmentCount  Int        @default(0) @map("enrollment_count")
+  rating           Float?
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
 
   // Relationships
-  lessons         Lesson[]
-  enrollments     CourseEnrollment[]
-  userProgress    UserProgress[]
+  lessons      Lesson[]
+  enrollments  CourseEnrollment[]
+  userProgress UserProgress[]
 
   @@index([difficulty])
   @@index([category])
@@ -184,22 +205,22 @@ enum Difficulty {
 }
 
 model Lesson {
-  id          String    @id @default(cuid())
-  courseId    String    @map("course_id")
+  id          String   @id @default(cuid())
+  courseId    String   @map("course_id")
   title       String
   description String?
-  content     String    // Markdown content
-  videoUrl    String?   @map("video_url")
-  orderIndex  Int       @map("order_index")
-  duration    Int?      // Duration in minutes
-  isPublished Boolean   @default(false) @map("is_published")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  content     String // Markdown content
+  videoUrl    String?  @map("video_url")
+  orderIndex  Int      @map("order_index")
+  duration    Int? // Duration in minutes
+  isPublished Boolean  @default(false) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relationships
-  course     Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  exercises  Exercise[]
-  progress   LessonProgress[]
+  course    Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  exercises Exercise[]
+  progress  LessonProgress[]
 
   @@index([courseId])
   @@index([orderIndex])
@@ -207,24 +228,24 @@ model Lesson {
 }
 
 model Exercise {
-  id               String    @id @default(cuid())
-  lessonId         String?   @map("lesson_id")
+  id               String     @id @default(cuid())
+  lessonId         String?    @map("lesson_id")
   title            String
   description      String
   instructions     String
-  starterCode      String?   @map("starter_code")
-  solutionCode     String?   @map("solution_code")
-  testCases        Json      // Array of test cases
+  starterCode      String?    @map("starter_code")
+  solutionCode     String?    @map("solution_code")
+  testCases        Json // Array of test cases
   difficulty       Difficulty
-  points           Int       @default(10)
-  timeLimit        Int?      @map("time_limit") // Seconds
-  memoryLimit      Int?      @map("memory_limit") // MB
-  allowedLanguages String[]  @map("allowed_languages")
+  points           Int        @default(10)
+  timeLimit        Int?       @map("time_limit") // Seconds
+  memoryLimit      Int?       @map("memory_limit") // MB
+  allowedLanguages String[]   @map("allowed_languages")
   hints            String[]
   tags             String[]
-  isPublished      Boolean   @default(false) @map("is_published")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
+  isPublished      Boolean    @default(false) @map("is_published")
+  createdAt        DateTime   @default(now()) @map("created_at")
+  updatedAt        DateTime   @updatedAt @map("updated_at")
 
   // Relationships
   lesson      Lesson?              @relation(fields: [lessonId], references: [id], onDelete: SetNull)
@@ -237,17 +258,17 @@ model Exercise {
 }
 
 model Quiz {
-  id          String    @id @default(cuid())
-  lessonId    String?   @map("lesson_id")
-  title       String
-  description String?
-  questions   Json      // Array of questions
-  timeLimit   Int?      @map("time_limit") // Minutes
-  attempts    Int       @default(3) // Number of allowed attempts
+  id           String   @id @default(cuid())
+  lessonId     String?  @map("lesson_id")
+  title        String
+  description  String?
+  questions    Json // Array of questions
+  timeLimit    Int?     @map("time_limit") // Minutes
+  maxAttempts  Int      @default(3) @map("max_attempts") // Number of allowed attempts
   passingScore Int      @default(70) @map("passing_score")
-  isPublished Boolean   @default(false) @map("is_published")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  isPublished  Boolean  @default(false) @map("is_published")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relationships
   attempts QuizAttempt[]
@@ -274,16 +295,16 @@ model CourseEnrollment {
 }
 
 model UserProgress {
-  id                String    @id @default(cuid())
-  userId            String    @map("user_id")
-  courseId          String    @map("course_id")
-  lessonsCompleted  Int       @default(0) @map("lessons_completed")
-  exercisesCompleted Int      @default(0) @map("exercises_completed")
-  timeSpent         Int       @default(0) @map("time_spent") // Minutes
-  lastAccessedAt    DateTime? @map("last_accessed_at")
-  completedAt       DateTime? @map("completed_at")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  id                 String    @id @default(cuid())
+  userId             String    @map("user_id")
+  courseId           String    @map("course_id")
+  lessonsCompleted   Int       @default(0) @map("lessons_completed")
+  exercisesCompleted Int       @default(0) @map("exercises_completed")
+  timeSpent          Int       @default(0) @map("time_spent") // Minutes
+  lastAccessedAt     DateTime? @map("last_accessed_at")
+  completedAt        DateTime? @map("completed_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
 
   // Relationships
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -313,18 +334,18 @@ model LessonProgress {
 }
 
 model ExerciseSubmission {
-  id          String              @id @default(cuid())
-  userId      String              @map("user_id")
-  exerciseId  String              @map("exercise_id")
-  code        String
-  language    String
-  status      SubmissionStatus
-  score       Int?                // Points earned
-  testResults Json?               @map("test_results")
-  feedback    String?
-  executionTime Float?            @map("execution_time")
-  memoryUsed  Int?                @map("memory_used")
-  submittedAt DateTime            @default(now()) @map("submitted_at")
+  id            String           @id @default(cuid())
+  userId        String           @map("user_id")
+  exerciseId    String           @map("exercise_id")
+  code          String
+  language      String
+  status        SubmissionStatus
+  score         Int? // Points earned
+  testResults   Json?            @map("test_results")
+  feedback      String?
+  executionTime Float?           @map("execution_time")
+  memoryUsed    Int?             @map("memory_used")
+  submittedAt   DateTime         @default(now()) @map("submitted_at")
 
   // Relationships
   user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -345,13 +366,13 @@ enum SubmissionStatus {
 }
 
 model QuizAttempt {
-  id          String    @id @default(cuid())
-  userId      String    @map("user_id")
-  quizId      String    @map("quiz_id")
-  answers     Json      // User's answers
-  score       Int       // Percentage score
-  timeSpent   Int       @map("time_spent") // Seconds
-  completedAt DateTime  @default(now()) @map("completed_at")
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  quizId      String   @map("quiz_id")
+  answers     Json // User's answers
+  score       Int // Percentage score
+  timeSpent   Int      @map("time_spent") // Seconds
+  completedAt DateTime @default(now()) @map("completed_at")
 
   // Relationships
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -364,16 +385,16 @@ model QuizAttempt {
 
 // Achievements and gamification
 model Achievement {
-  id          String    @id @default(cuid())
-  name        String    @unique
+  id          String   @id @default(cuid())
+  name        String   @unique
   description String
   icon        String
   category    String
-  points      Int       @default(0)
-  rarity      Rarity    @default(COMMON)
-  criteria    Json      // Achievement criteria
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  points      Int      @default(0)
+  rarity      Rarity   @default(COMMON)
+  criteria    Json // Achievement criteria
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   // Relationships
   userAchievements UserAchievement[]
@@ -390,11 +411,11 @@ enum Rarity {
 }
 
 model UserAchievement {
-  id            String      @id @default(cuid())
-  userId        String      @map("user_id")
-  achievementId String      @map("achievement_id")
-  earnedAt      DateTime    @default(now()) @map("earned_at")
-  progress      Json?       // Achievement progress data
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  achievementId String   @map("achievement_id")
+  earnedAt      DateTime @default(now()) @map("earned_at")
+  progress      Json? // Achievement progress data
 
   // Relationships
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -406,24 +427,26 @@ model UserAchievement {
 
 // Community features
 model ForumPost {
-  id         String          @id @default(cuid())
-  userId     String          @map("user_id")
-  categoryId String?         @map("category_id")
+  id         String     @id @default(cuid())
+  userId     String     @map("user_id")
+  categoryId String?    @map("category_id")
   title      String
   content    String
   tags       String[]
-  views      Int             @default(0)
-  likes      Int             @default(0)
-  isPinned   Boolean         @default(false) @map("is_pinned")
-  isLocked   Boolean         @default(false) @map("is_locked")
-  status     PostStatus      @default(PUBLISHED)
-  createdAt  DateTime        @default(now()) @map("created_at")
-  updatedAt  DateTime        @updatedAt @map("updated_at")
+  views      Int        @default(0)
+  likes      Int        @default(0)
+  isPinned   Boolean    @default(false) @map("is_pinned")
+  isLocked   Boolean    @default(false) @map("is_locked")
+  status     PostStatus @default(PUBLISHED)
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
 
   // Relationships
-  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category ForumCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category ForumCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   comments ForumComment[]
+  likedBy  ForumPostLike[]
+  reports  PostReport[]
 
   @@index([userId])
   @@index([categoryId])
@@ -437,17 +460,18 @@ enum PostStatus {
   PUBLISHED
   ARCHIVED
   DELETED
+  HIDDEN // removed from view by a moderator
 }
 
 model ForumCategory {
-  id          String      @id @default(cuid())
-  name        String      @unique
+  id          String   @id @default(cuid())
+  name        String   @unique
   description String?
   color       String?
   icon        String?
-  orderIndex  Int         @map("order_index")
-  isActive    Boolean     @default(true) @map("is_active")
-  createdAt   DateTime    @default(now()) @map("created_at")
+  orderIndex  Int      @map("order_index")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
 
   // Relationships
   posts ForumPost[]
@@ -455,21 +479,61 @@ model ForumCategory {
   @@map("forum_categories")
 }
 
+// One row per (user, post); `ForumPost.likes` is the denormalised counter.
+model ForumPostLike {
+  userId    String   @map("user_id")
+  postId    String   @map("post_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@id([userId, postId])
+  @@index([postId])
+  @@map("forum_post_likes")
+}
+
+enum ReportStatus {
+  OPEN
+  ACTIONED
+  DISMISSED
+}
+
+// A user's report of a forum post. One open report per (post, reporter).
+model PostReport {
+  id           String       @id @default(cuid())
+  postId       String       @map("post_id")
+  reporterId   String       @map("reporter_id")
+  reason       String
+  status       ReportStatus @default(OPEN)
+  resolvedById String?      @map("resolved_by_id")
+  resolvedAt   DateTime?    @map("resolved_at")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  post       ForumPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporter   User      @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  resolvedBy User?     @relation("Resolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@unique([postId, reporterId])
+  @@index([status])
+  @@map("post_reports")
+}
+
 model ForumComment {
-  id        String    @id @default(cuid())
-  userId    String    @map("user_id")
-  postId    String    @map("post_id")
-  parentId  String?   @map("parent_id") // For nested comments
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  postId    String   @map("post_id")
+  parentId  String?  @map("parent_id") // For nested comments
   content   String
-  likes     Int       @default(0)
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  likes     Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relationships
-  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  post     ForumPost     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  parent   ForumComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies  ForumComment[] @relation("CommentReplies")
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post    ForumPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parent  ForumComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies ForumComment[] @relation("CommentReplies")
 
   @@index([userId])
   @@index([postId])
@@ -479,15 +543,15 @@ model ForumComment {
 
 // Notifications
 model Notification {
-  id         String           @id @default(cuid())
-  userId     String           @map("user_id")
-  type       NotificationType
-  title      String
-  message    String
-  data       Json?            // Additional notification data
-  read       Boolean          @default(false)
-  readAt     DateTime?        @map("read_at")
-  createdAt  DateTime         @default(now()) @map("created_at")
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  type      NotificationType
+  title     String
+  message   String
+  data      Json? // Additional notification data
+  read      Boolean          @default(false)
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
 
   // Relationships
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -511,15 +575,15 @@ enum NotificationType {
 
 // Analytics and metrics
 model UserActivity {
-  id           String    @id @default(cuid())
-  userId       String    @map("user_id")
-  action       String    // login, logout, code_execution, lesson_view, etc.
-  resource     String?   // Resource identifier (lesson_id, exercise_id, etc.)
-  metadata     Json?     // Additional activity data
-  ipAddress    String?   @map("ip_address")
-  userAgent    String?   @map("user_agent")
-  duration     Int?      // Duration in seconds
-  occurredAt   DateTime  @default(now()) @map("occurred_at")
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  action     String // login, logout, code_execution, lesson_view, etc.
+  resource   String? // Resource identifier (lesson_id, exercise_id, etc.)
+  metadata   Json? // Additional activity data
+  ipAddress  String?  @map("ip_address")
+  userAgent  String?  @map("user_agent")
+  duration   Int? // Duration in seconds
+  occurredAt DateTime @default(now()) @map("occurred_at")
 
   @@index([userId])
   @@index([action])
@@ -528,11 +592,11 @@ model UserActivity {
 }
 
 model SystemMetrics {
-  id        String    @id @default(cuid())
-  metric    String    // cpu_usage, memory_usage, active_users, etc.
+  id        String   @id @default(cuid())
+  metric    String // cpu_usage, memory_usage, active_users, etc.
   value     Float
-  tags      Json?     // Additional metric tags
-  timestamp DateTime  @default(now())
+  tags      Json? // Additional metric tags
+  timestamp DateTime @default(now())
 
   @@index([metric])
   @@index([timestamp])
@@ -541,12 +605,12 @@ model SystemMetrics {
 
 // Configuration and settings
 model SystemConfig {
-  id          String    @id @default(cuid())
-  key         String    @unique
+  id          String   @id @default(cuid())
+  key         String   @unique
   value       Json
   description String?
-  updatedBy   String?   @map("updated_by")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  updatedBy   String?  @map("updated_by")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@map("system_config")
 }

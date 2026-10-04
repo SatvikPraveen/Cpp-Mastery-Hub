@@ -1,10 +1,10 @@
+import type { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
 
 import { prisma } from '../config/database';
-import { logger } from '../utils/logger';
 import { ApiError } from '../utils/errors';
-import { FileUploadService } from './file-upload-service';
+import { logger } from '../utils/logger';
+
 import { CacheService } from './cache-service';
 
 interface UpdateProfileData {
@@ -14,6 +14,7 @@ interface UpdateProfileData {
   website?: string;
   location?: string;
   skills?: string[];
+  avatarUrl?: string;
 }
 
 interface UserSettings {
@@ -26,13 +27,8 @@ interface UserSettings {
   codeCompletion?: boolean;
 }
 
-interface SearchFilters {
-  limit: number;
-  offset: number;
-}
 
 export class UserService {
-  private fileUploadService = new FileUploadService();
   private cacheService = new CacheService();
 
   /**
@@ -71,7 +67,7 @@ export class UserService {
             select: {
               codeSnippets: true,
               forumPosts: true,
-              achievements: true,
+              userAchievements: true,
               enrollments: true
             }
           }
@@ -108,15 +104,10 @@ export class UserService {
     try {
       const updatedUser = await prisma.user.update({
         where: { id: userId },
-        data: {
-          firstName: data.firstName,
-          lastName: data.lastName,
-          bio: data.bio,
-          website: data.website,
-          location: data.location,
-          skills: data.skills,
-          updatedAt: new Date()
-        },
+        // Only fields present in the request are written; Prisma maintains updatedAt.
+        data: Object.fromEntries(
+          Object.entries(data).filter(([, value]) => value !== undefined)
+        ) as Prisma.UserUpdateInput,
         select: {
           id: true,
           email: true,
@@ -181,54 +172,11 @@ export class UserService {
       // Log password change for security
       logger.info('Password changed successfully', { userId });
 
-      // Invalidate all user sessions (would need to implement session management)
+      // Revoke every session: a password change must log out other devices.
       await this.invalidateUserSessions(userId);
 
     } catch (error) {
       logger.error('Failed to change password', { userId, error });
-      throw error;
-    }
-  }
-
-  /**
-   * Upload user avatar
-   */
-  async uploadAvatar(userId: string, file: Express.Multer.File) {
-    try {
-      if (!file) {
-        throw new ApiError(400, 'No file provided');
-      }
-
-      // Upload file to storage service (S3, CloudFlare, etc.)
-      const avatarUrl = await this.fileUploadService.uploadImage(file, {
-        folder: 'avatars',
-        userId,
-        maxWidth: 400,
-        maxHeight: 400,
-        quality: 85
-      });
-
-      // Update user record
-      const updatedUser = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          avatarUrl,
-          updatedAt: new Date()
-        },
-        select: {
-          id: true,
-          avatarUrl: true
-        }
-      });
-
-      // Invalidate cache
-      const cacheKey = `user_profile:${userId}`;
-      await this.cacheService.del(cacheKey);
-
-      logger.info('Avatar uploaded successfully', { userId, avatarUrl });
-      return avatarUrl;
-    } catch (error) {
-      logger.error('Failed to upload avatar', { userId, error });
       throw error;
     }
   }
@@ -353,7 +301,7 @@ export class UserService {
             select: {
               codeSnippets: true,
               forumPosts: true,
-              achievements: true
+              userAchievements: true
             }
           }
         },
@@ -467,7 +415,7 @@ export class UserService {
           isActive: false,
           deactivatedAt: new Date(),
           deactivationReason: reason,
-          deactivationFeedback: feedback
+          deactivationFeedback: feedback ?? null
         }
       });
 
@@ -564,11 +512,13 @@ export class UserService {
    */
   private async invalidateUserSessions(userId: string) {
     try {
-      // This would typically involve:
-      // 1. Removing user sessions from Redis
-      // 2. Adding user ID to JWT blacklist
-      // 3. Updating refresh token version
-      
+      // The auth middleware accepts a token only while its UserSession row is active, so
+      // deactivating the rows revokes every outstanding access and refresh token.
+      await prisma.userSession.updateMany({
+        where: { userId, isActive: true },
+        data: { isActive: false },
+      });
+
       const sessionKeys = await this.cacheService.keys(`session:${userId}:*`);
       if (sessionKeys.length > 0) {
         await this.cacheService.del(...sessionKeys);
@@ -590,3 +540,4 @@ export class UserService {
     }
   }
 }
+export const userService = new UserService();

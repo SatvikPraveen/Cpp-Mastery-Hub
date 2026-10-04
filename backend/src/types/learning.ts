@@ -1,3 +1,5 @@
+import type { CodeExecutionResponse } from './code';
+
 export interface Course {
   id: string;
   title: string;

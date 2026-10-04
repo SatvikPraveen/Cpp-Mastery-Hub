@@ -1,6 +1,7 @@
 import winston from 'winston';
 import DailyRotateFile from 'winston-daily-rotate-file';
-import config from '../config';
+
+import { config, loggingConfig } from '../config';
 
 // Define log levels
 const logLevels = {
@@ -32,7 +33,7 @@ const logFormat = winston.format.combine(
     (info) => {
       const { timestamp, level, message, ...args } = info;
       const argsStr = Object.keys(args).length ? JSON.stringify(args, null, 2) : '';
-      return `${timestamp} [${level}]: ${message} ${argsStr}`;
+      return `${String(timestamp)} [${level}]: ${String(message)} ${argsStr}`;
     }
   )
 );
@@ -46,9 +47,10 @@ const fileFormat = winston.format.combine(
 
 // Create transports array
 const transports: winston.transport[] = [];
+const isTest = config.NODE_ENV === 'test';
 
 // Console transport for development
-if (config.nodeEnv === 'development') {
+if (config.NODE_ENV === 'development') {
   transports.push(
     new winston.transports.Console({
       level: 'debug',
@@ -68,58 +70,63 @@ if (config.nodeEnv === 'development') {
   );
 }
 
-// File transport for all environments
-transports.push(
-  new DailyRotateFile({
-    filename: 'logs/app-%DATE%.log',
-    datePattern: 'YYYY-MM-DD',
-    maxSize: config.logging.maxSize,
-    maxFiles: config.logging.maxFiles,
-    level: config.logging.level,
-    format: fileFormat,
-    handleExceptions: true,
-    handleRejections: true,
-  })
-);
+// File transports (skipped under test so the suite never writes to ./logs)
+if (!isTest) {
+  // All application logs
+  transports.push(
+    new DailyRotateFile({
+      filename: 'logs/app-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxSize: loggingConfig.maxSize,
+      maxFiles: loggingConfig.maxFiles,
+      level: loggingConfig.level,
+      format: fileFormat,
+      handleExceptions: true,
+      handleRejections: true,
+    })
+  );
 
-// Error file transport
-transports.push(
-  new DailyRotateFile({
-    filename: 'logs/error-%DATE%.log',
-    datePattern: 'YYYY-MM-DD',
-    maxSize: config.logging.maxSize,
-    maxFiles: config.logging.maxFiles,
-    level: 'error',
-    format: fileFormat,
-    handleExceptions: true,
-    handleRejections: true,
-  })
-);
+  // Error file transport
+  transports.push(
+    new DailyRotateFile({
+      filename: 'logs/error-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxSize: loggingConfig.maxSize,
+      maxFiles: loggingConfig.maxFiles,
+      level: 'error',
+      format: fileFormat,
+      handleExceptions: true,
+      handleRejections: true,
+    })
+  );
 
-// HTTP requests log file (for morgan)
-transports.push(
-  new DailyRotateFile({
-    filename: 'logs/access-%DATE%.log',
-    datePattern: 'YYYY-MM-DD',
-    maxSize: config.logging.maxSize,
-    maxFiles: config.logging.maxFiles,
-    level: 'http',
-    format: fileFormat,
-  })
-);
+  // HTTP requests log file (for morgan)
+  transports.push(
+    new DailyRotateFile({
+      filename: 'logs/access-%DATE%.log',
+      datePattern: 'YYYY-MM-DD',
+      maxSize: loggingConfig.maxSize,
+      maxFiles: loggingConfig.maxFiles,
+      level: 'http',
+      format: fileFormat,
+    })
+  );
+}
 
 // Create logger instance
-const logger = winston.createLogger({
-  level: config.logging.level,
+export const logger = winston.createLogger({
+  level: loggingConfig.level,
   levels: logLevels,
   transports,
   exitOnError: false,
-  silent: process.env.NODE_ENV === 'test',
+  silent: isTest,
 });
+
+type LogContext = Record<string, unknown>;
 
 // Enhanced logging methods with context
 export const logWithContext = {
-  error: (message: string, context?: Record<string, any>, error?: Error) => {
+  error: (message: string, context?: LogContext, error?: Error) => {
     logger.error(message, {
       ...context,
       ...(error && {
@@ -132,19 +139,19 @@ export const logWithContext = {
     });
   },
 
-  warn: (message: string, context?: Record<string, any>) => {
+  warn: (message: string, context?: LogContext) => {
     logger.warn(message, context);
   },
 
-  info: (message: string, context?: Record<string, any>) => {
+  info: (message: string, context?: LogContext) => {
     logger.info(message, context);
   },
 
-  http: (message: string, context?: Record<string, any>) => {
+  http: (message: string, context?: LogContext) => {
     logger.http(message, context);
   },
 
-  debug: (message: string, context?: Record<string, any>) => {
+  debug: (message: string, context?: LogContext) => {
     logger.debug(message, context);
   },
 };
@@ -200,7 +207,7 @@ export const securityLogger = {
     });
   },
 
-  suspiciousActivity: (userId: string, activity: string, details?: Record<string, any>) => {
+  suspiciousActivity: (userId: string, activity: string, details?: LogContext) => {
     logger.warn('Suspicious activity detected', {
       event: 'suspicious_activity',
       userId,
@@ -381,7 +388,7 @@ export const monitoringLogger = {
     });
   },
 
-  healthCheck: (service: string, status: 'healthy' | 'unhealthy', details?: Record<string, any>) => {
+  healthCheck: (service: string, status: 'healthy' | 'unhealthy', details?: LogContext) => {
     logger.info('Health check', {
       event: 'health_check',
       service,
@@ -391,7 +398,7 @@ export const monitoringLogger = {
     });
   },
 
-  systemEvent: (event: string, details: Record<string, any>) => {
+  systemEvent: (event: string, details: LogContext) => {
     logger.info('System event', {
       event: 'system_event',
       eventType: event,
@@ -406,18 +413,6 @@ export const morganStream = {
   write: (message: string) => {
     logger.http(message.trim());
   },
-};
-
-// Export the logger and all utilities
-export {
-  logger,
-  logWithContext,
-  securityLogger,
-  performanceLogger,
-  businessLogger,
-  errorLogger,
-  monitoringLogger,
-  morganStream,
 };
 
 export default logger;

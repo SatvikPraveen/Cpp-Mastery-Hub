@@ -1,6 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
-import { createLogger, format, transports, Logger } from 'winston';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import { createLogger, format, transports, Logger } from 'winston';
+import type Transport from 'winston-transport';
 
 interface LoggingOptions {
   level?: string;
@@ -10,29 +11,36 @@ interface LoggingOptions {
   maskSensitiveData?: boolean;
   skipHealthChecks?: boolean;
   skipStaticFiles?: boolean;
-  customFormat?: any;
-  transports?: any[];
+  customFormat?: ReturnType<typeof format.combine>;
+  transports?: Transport[];
 }
 
 interface RequestLogData {
   requestId: string;
   method: string;
   url: string;
-  userAgent?: string;
+  userAgent?: string | undefined;
   ip: string;
-  userId?: string;
-  sessionId?: string;
-  headers?: Record<string, any>;
-  query?: Record<string, any>;
-  body?: any;
+  userId?: string | undefined;
+  sessionId?: string | undefined;
+  headers?: unknown;
+  query?: unknown;
+  body?: unknown;
   timestamp: string;
 }
 
-interface ResponseLogData extends RequestLogData {
+interface LoggedError {
+  message: string;
+  stack?: string | undefined;
+  code?: unknown;
+  name: string;
+}
+
+interface ResponseLogData extends Partial<RequestLogData> {
   statusCode: number;
   responseTime: number;
-  contentLength?: string;
-  error?: any;
+  contentLength?: string | undefined;
+  error?: LoggedError | undefined;
 }
 
 // Sensitive fields to mask in logs
@@ -54,19 +62,19 @@ const SENSITIVE_FIELDS = [
 // Create logger instance
 const createAppLogger = (options: LoggingOptions = {}): Logger => {
   const {
-    level = process.env.LOG_LEVEL || 'info',
+    level = process.env['LOG_LEVEL'] ?? 'info',
     customFormat,
     transports: customTransports
   } = options;
 
-  const logFormat = customFormat || format.combine(
+  const logFormat = customFormat ?? format.combine(
     format.timestamp(),
     format.errors({ stack: true }),
     format.json(),
     format.prettyPrint()
   );
 
-  const defaultTransports = [
+  const defaultTransports: Transport[] = [
     new transports.Console({
       format: format.combine(
         format.colorize(),
@@ -76,7 +84,7 @@ const createAppLogger = (options: LoggingOptions = {}): Logger => {
   ];
 
   // Add file transports for production
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env['NODE_ENV'] === 'production') {
     defaultTransports.push(
       new transports.File({
         filename: 'logs/error.log',
@@ -95,35 +103,47 @@ const createAppLogger = (options: LoggingOptions = {}): Logger => {
   return createLogger({
     level,
     format: logFormat,
-    transports: customTransports || defaultTransports,
+    transports: customTransports ?? defaultTransports,
     // Don't exit on handled exceptions
-    exitOnError: false
+    exitOnError: false,
+    silent: process.env['NODE_ENV'] === 'test',
   });
 };
 
 // Mask sensitive data in objects
-const maskSensitiveData = (obj: any, depth = 0): any => {
+const maskSensitiveData = (obj: unknown, depth = 0): unknown => {
   if (depth > 5 || obj === null || typeof obj !== 'object') {
     return obj;
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(item => maskSensitiveData(item, depth + 1));
+    return obj.map((item: unknown) => maskSensitiveData(item, depth + 1));
   }
 
-  const masked = { ...obj };
-  
-  for (const [key, value] of Object.entries(masked)) {
+  const masked: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
     const lowerKey = key.toLowerCase();
-    
-    if (SENSITIVE_FIELDS.some(field => lowerKey.includes(field))) {
-      masked[key] = '[MASKED]';
-    } else if (typeof value === 'object') {
-      masked[key] = maskSensitiveData(value, depth + 1);
-    }
+    masked[key] = SENSITIVE_FIELDS.some((field) => lowerKey.includes(field))
+      ? '[MASKED]'
+      : maskSensitiveData(value, depth + 1);
   }
 
   return masked;
+};
+
+const toLoggedError = (error: unknown): LoggedError | undefined => {
+  if (!error) {
+    return undefined;
+  }
+  if (error instanceof Error) {
+    return {
+      message: error.message,
+      stack: error.stack,
+      code: (error as { code?: unknown }).code,
+      name: error.name,
+    };
+  }
+  return { message: String(error), name: 'UnknownError' };
 };
 
 // Check if request should be skipped
@@ -151,13 +171,13 @@ const extractRequestData = (req: Request, options: LoggingOptions): RequestLogDa
   } = options;
 
   const data: RequestLogData = {
-    requestId: req.requestId,
+    requestId: req.requestId ?? 'unknown',
     method: req.method,
     url: req.originalUrl || req.url,
-    ip: req.ip || req.connection.remoteAddress || 'unknown',
+    ip: req.ip ?? req.socket.remoteAddress ?? 'unknown',
     userAgent: req.get('User-Agent'),
     userId: req.user?.id,
-    sessionId: req.sessionID,
+    sessionId: req.sessionId,
     timestamp: new Date().toISOString()
   };
 
@@ -169,8 +189,9 @@ const extractRequestData = (req: Request, options: LoggingOptions): RequestLogDa
     data.query = mask ? maskSensitiveData(req.query) : req.query;
   }
 
-  if (includeBody && req.body && Object.keys(req.body).length > 0) {
-    data.body = mask ? maskSensitiveData(req.body) : req.body;
+  const body: unknown = req.body;
+  if (includeBody && typeof body === 'object' && body !== null && Object.keys(body).length > 0) {
+    data.body = mask ? maskSensitiveData(body) : body;
   }
 
   return data;
@@ -181,64 +202,44 @@ const extractResponseData = (
   req: Request,
   res: Response,
   responseTime: number,
-  error?: any
+  error?: unknown
 ): ResponseLogData => {
-  const requestData = req.logData as RequestLogData;
-
   return {
-    ...requestData,
+    ...req.logData,
     statusCode: res.statusCode,
     responseTime,
     contentLength: res.get('Content-Length'),
-    error: error ? {
-      message: error.message,
-      stack: error.stack,
-      code: error.code,
-      name: error.name
-    } : undefined
+    error: toLoggedError(error),
   };
 };
 
 // Request ID middleware
 export const requestIdMiddleware = (req: Request, res: Response, next: NextFunction): void => {
-  req.requestId = req.get('X-Request-ID') || uuidv4();
-  res.set('X-Request-ID', req.requestId);
+  const requestId = req.get('X-Request-ID') ?? uuidv4();
+  req.requestId = requestId;
+  res.set('X-Request-ID', requestId);
   next();
 };
 
 // Main logging middleware
-export const createLoggingMiddleware = (options: LoggingOptions = {}) => {
+export const createLoggingMiddleware = (options: LoggingOptions = {}): RequestHandler => {
   const logger = createAppLogger(options);
 
   return (req: Request, res: Response, next: NextFunction): void => {
     // Skip certain requests
     if (shouldSkipRequest(req, options)) {
-      return next();
+      next();
+      return;
     }
 
     const startTime = Date.now();
 
     // Extract and store request data
-    req.logData = extractRequestData(req, options);
+    const logData = extractRequestData(req, options);
+    req.logData = logData;
 
     // Log incoming request
-    logger.info('Incoming request', req.logData);
-
-    // Capture response
-    const originalSend = res.send;
-    const originalJson = res.json;
-
-    let responseBody: any;
-
-    res.send = function(body: any) {
-      responseBody = body;
-      return originalSend.call(this, body);
-    };
-
-    res.json = function(body: any) {
-      responseBody = body;
-      return originalJson.call(this, body);
-    };
+    logger.info('Incoming request', logData);
 
     // Log response when finished
     res.on('finish', () => {
@@ -265,7 +266,7 @@ export const createLoggingMiddleware = (options: LoggingOptions = {}) => {
     });
 
     // Log errors
-    res.on('error', (error) => {
+    res.on('error', (error: Error) => {
       const responseTime = Date.now() - startTime;
       const responseData = extractResponseData(req, res, responseTime, error);
 
@@ -367,12 +368,13 @@ export const performanceLoggingMiddleware = (req: Request, res: Response, next: 
 
 // Error logging middleware
 export const errorLoggingMiddleware = (
-  error: any,
+  error: unknown,
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): void => {
   const logger = createAppLogger({ level: 'error' });
+  const { status, statusCode } = (error ?? {}) as { status?: unknown; statusCode?: unknown };
 
   const errorData = {
     requestId: req.requestId,
@@ -381,28 +383,19 @@ export const errorLoggingMiddleware = (
     ip: req.ip,
     userId: req.user?.id,
     error: {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      code: error.code,
-      status: error.status || error.statusCode
+      ...toLoggedError(error),
+      status: status ?? statusCode,
     },
     timestamp: new Date().toISOString()
   };
 
   logger.error('Request error', errorData);
 
-  // Send error to external monitoring service if configured
-  if (process.env.ERROR_REPORTING_URL) {
-    // Send to external service (e.g., Sentry, LogRocket)
-    // This would be implementation-specific
-  }
-
   next(error);
 };
 
 // Audit logging for sensitive operations
-export const auditLoggingMiddleware = (operation: string) => {
+export const auditLoggingMiddleware = (operation: string): RequestHandler => {
   return (req: Request, res: Response, next: NextFunction): void => {
     const logger = createAppLogger({ level: 'info' });
 
@@ -480,13 +473,20 @@ export const analyticsLoggingMiddleware = (req: Request, res: Response, next: Ne
 };
 
 // Database query logging
-export const queryLoggingMiddleware = (queryType: string, queryData: any) => {
+export interface QueryLogInput {
+  query?: string;
+  sql?: string;
+  duration: number;
+  rowCount?: number;
+}
+
+export const queryLoggingMiddleware = (queryType: string, queryData: QueryLogInput): void => {
   const logger = createComponentLogger('DATABASE');
-  
+
   const logData = {
     type: 'database_query',
     queryType,
-    query: queryData.query || queryData.sql,
+    query: queryData.query ?? queryData.sql,
     duration: queryData.duration,
     rowCount: queryData.rowCount,
     timestamp: new Date().toISOString()
@@ -520,35 +520,31 @@ export const healthCheckLoggingMiddleware = (req: Request, res: Response, next: 
 export const rateLimitLoggingMiddleware = (req: Request, res: Response, next: NextFunction): void => {
   const logger = createComponentLogger('RATE_LIMIT');
   
-  const originalSet = res.set;
-  res.set = function(field: any, val?: string) {
-    // Log rate limit headers when they're set
-    if (typeof field === 'object' && field['X-RateLimit-Remaining']) {
-      const remaining = parseInt(field['X-RateLimit-Remaining']);
-      const limit = parseInt(field['X-RateLimit-Limit']);
-      
-      if (remaining < limit * 0.1) { // Log when 90% of limit is used
-        logger.warn('Rate limit threshold reached', {
-          requestId: req.requestId,
-          ip: req.ip,
-          remaining,
-          limit,
-          usage: ((limit - remaining) / limit * 100).toFixed(1) + '%',
-          timestamp: new Date().toISOString()
-        });
-      }
+  // Inspect rate limit headers once the response is complete
+  res.on('finish', () => {
+    const remaining = Number(res.get('X-RateLimit-Remaining'));
+    const limit = Number(res.get('X-RateLimit-Limit'));
+
+    if (Number.isFinite(remaining) && Number.isFinite(limit) && limit > 0 && remaining < limit * 0.1) {
+      // Log when 90% of limit is used
+      logger.warn('Rate limit threshold reached', {
+        requestId: req.requestId,
+        ip: req.ip,
+        remaining,
+        limit,
+        usage: `${(((limit - remaining) / limit) * 100).toFixed(1)}%`,
+        timestamp: new Date().toISOString()
+      });
     }
-    
-    return originalSet.call(this, field, val);
-  };
-  
+  });
+
   next();
 };
 
 // Export predefined logging middleware with common configurations
 export const defaultLoggingMiddleware = createLoggingMiddleware({
   level: 'info',
-  includeBody: process.env.NODE_ENV === 'development',
+  includeBody: process.env['NODE_ENV'] === 'development',
   includeHeaders: false,
   includeQuery: true,
   maskSensitiveData: true,
@@ -577,7 +573,13 @@ export const productionLoggingMiddleware = createLoggingMiddleware({
 });
 
 // Structured logging helpers
-export const logAPICall = (logger: Logger, method: string, endpoint: string, duration: number, statusCode: number) => {
+export const logAPICall = (
+  logger: Logger,
+  method: string,
+  endpoint: string,
+  duration: number,
+  statusCode: number
+): void => {
   logger.info('API Call', {
     type: 'api_call',
     method,
@@ -588,7 +590,13 @@ export const logAPICall = (logger: Logger, method: string, endpoint: string, dur
   });
 };
 
-export const logUserAction = (logger: Logger, userId: string, action: string, resource: string, details?: any) => {
+export const logUserAction = (
+  logger: Logger,
+  userId: string,
+  action: string,
+  resource: string,
+  details?: unknown
+): void => {
   logger.info('User Action', {
     type: 'user_action',
     userId,
@@ -599,7 +607,12 @@ export const logUserAction = (logger: Logger, userId: string, action: string, re
   });
 };
 
-export const logSystemEvent = (logger: Logger, event: string, severity: 'info' | 'warn' | 'error', details?: any) => {
+export const logSystemEvent = (
+  logger: Logger,
+  event: string,
+  severity: 'info' | 'warn' | 'error',
+  details?: unknown
+): void => {
   logger.log(severity, 'System Event', {
     type: 'system_event',
     event,

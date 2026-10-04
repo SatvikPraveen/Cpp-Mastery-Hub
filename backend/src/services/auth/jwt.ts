@@ -1,4 +1,7 @@
-import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
+
+import jwt, { type SignOptions } from 'jsonwebtoken';
+
 import config from '../../config';
 import { logger } from '../../utils/logger';
 
@@ -15,17 +18,18 @@ interface TokenPair {
 /**
  * Generate access and refresh tokens for a user
  */
-export const generateTokens = (userId: string, expiresIn: string = '7d'): TokenPair => {
+export const generateTokens = (userId: string): TokenPair => {
   try {
     // Generate access token
     const accessToken = jwt.sign(
       { 
         userId, 
-        type: 'access' 
-      } as TokenPayload,
+        type: 'access',
+        jti: randomUUID(),
+      },
       config.jwt.secret,
       { 
-        expiresIn: config.jwt.expiresIn,
+        expiresIn: config.jwt.expiresIn as NonNullable<SignOptions['expiresIn']>,
         issuer: 'cpp-mastery-hub',
         audience: 'cpp-mastery-users',
       }
@@ -35,11 +39,12 @@ export const generateTokens = (userId: string, expiresIn: string = '7d'): TokenP
     const refreshToken = jwt.sign(
       { 
         userId, 
-        type: 'refresh' 
-      } as TokenPayload,
-      config.jwt.secret,
+        type: 'refresh',
+        jti: randomUUID(),
+      },
+      config.jwt.refreshSecret,
       { 
-        expiresIn: config.jwt.refreshExpiresIn,
+        expiresIn: config.jwt.refreshExpiresIn as NonNullable<SignOptions['expiresIn']>,
         issuer: 'cpp-mastery-hub',
         audience: 'cpp-mastery-users',
       }
@@ -87,7 +92,7 @@ export const verifyAccessToken = (token: string): TokenPayload | null => {
  */
 export const verifyRefreshToken = (token: string): TokenPayload | null => {
   try {
-    const decoded = jwt.verify(token, config.jwt.secret, {
+    const decoded = jwt.verify(token, config.jwt.refreshSecret, {
       issuer: 'cpp-mastery-hub',
       audience: 'cpp-mastery-users',
     }) as jwt.JwtPayload;
@@ -130,7 +135,7 @@ export const decodeToken = (token: string): any => {
 export const getTokenExpiration = (token: string): Date | null => {
   try {
     const decoded = jwt.decode(token) as jwt.JwtPayload;
-    if (!decoded || !decoded.exp) {
+    if (!decoded?.exp) {
       return null;
     }
     return new Date(decoded.exp * 1000);
@@ -332,7 +337,7 @@ export const extractUserIdFromToken = (token: string): string | null => {
 export const getTokenTimeToExpiry = (token: string): number | null => {
   try {
     const decoded = jwt.decode(token) as jwt.JwtPayload;
-    if (!decoded || !decoded.exp) {
+    if (!decoded?.exp) {
       return null;
     }
     const now = Math.floor(Date.now() / 1000);
@@ -346,7 +351,7 @@ export const getTokenTimeToExpiry = (token: string): number | null => {
 /**
  * Refresh tokens if access token is close to expiring
  */
-export const shouldRefreshToken = (accessToken: string, thresholdMinutes: number = 15): boolean => {
+export const shouldRefreshToken = (accessToken: string, thresholdMinutes = 15): boolean => {
   const timeToExpiry = getTokenTimeToExpiry(accessToken);
   if (timeToExpiry === null) {
     return true; // Refresh if we can't determine expiry

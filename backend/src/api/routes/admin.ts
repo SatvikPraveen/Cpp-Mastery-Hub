@@ -1,421 +1,301 @@
-import { Router, Request, Response } from 'express';
-import { authenticateToken, requireRole } from '../middleware/auth';
-import { ValidationMiddleware, schemas } from '../middleware/validation';
-import { generalRateLimit } from '../middleware/ratelimit';
-import { User } from '../../models/User';
-import { CodeSnippet } from '../../models/CodeSnippet';
-import { ForumPost } from '../../models/ForumPost';
+import { Prisma, PostStatus, ReportStatus, UserRole } from '@prisma/client';
+import { Router } from 'express';
+import { z } from 'zod';
+
+import { prisma } from '../../config/database';
+import { ApiError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
-import Joi from 'joi';
+import { handle, parse, requireUserId } from '../http';
+import { hasRoleAtLeast, requireRole } from '../middleware/auth';
 
+/**
+ * Administration endpoints. Mounted behind `authenticateToken`; every route additionally
+ * requires MODERATOR or ADMIN as noted.
+ *
+ *   GET   /stats                          platform counts                      (moderator)
+ *   GET   /users, GET /users/:userId      list / inspect users                 (moderator)
+ *   PATCH /users/:userId                  change role or active flag           (admin)
+ *   POST  /users/:userId/ban|unban        deactivate / reactivate an account   (moderator)
+ *   PATCH /posts/:postId                  pin, lock, hide a forum post         (moderator)
+ *   GET   /reports                        open (or filtered) post reports      (moderator)
+ *   POST  /reports/:reportId/resolve      action or dismiss; actioning hides the post (moderator)
+ *   GET   /settings, PUT /settings/:key   SystemConfig key/value store         (admin)
+ */
 const router = Router();
+const moderator = requireRole(['moderator', 'admin']);
+const admin = requireRole(['admin']);
 
-// Apply rate limiting and authentication to all admin routes
-router.use(generalRateLimit);
-router.use(authenticateToken);
-router.use(requireRole(['admin', 'moderator']));
+const userIdParam = z.object({ userId: z.string().min(1).max(64) });
+const adminUserSelect = {
+  id: true,
+  email: true,
+  username: true,
+  firstName: true,
+  lastName: true,
+  role: true,
+  isActive: true,
+  isVerified: true,
+  lastActiveAt: true,
+  joinedAt: true,
+  deactivatedAt: true,
+  deactivationReason: true,
+} as const;
 
-// Admin dashboard statistics
-router.get('/dashboard/stats', async (req: Request, res: Response) => {
-  try {
-    const [
-      totalUsers,
-      activeUsers,
-      totalCodeSnippets,
-      totalForumPosts,
-      pendingReports
-    ] = await Promise.all([
-      User.countDocuments(),
-      User.countDocuments({ lastLoginAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } }),
-      CodeSnippet.countDocuments(),
-      ForumPost.countDocuments(),
-      ForumPost.countDocuments({ status: 'reported' })
+router.get(
+  '/stats',
+  moderator,
+  handle(async (_req, res) => {
+    const since = new Date(Date.now() - 7 * 24 * 3600 * 1000);
+    const [users, activeUsers, newUsers, snippets, posts, enrollments] = await prisma.$transaction([
+      prisma.user.count(),
+      prisma.user.count({ where: { lastActiveAt: { gte: since } } }),
+      prisma.user.count({ where: { joinedAt: { gte: since } } }),
+      prisma.codeSnippet.count(),
+      prisma.forumPost.count(),
+      prisma.courseEnrollment.count(),
     ]);
-
-    const userGrowth = await User.aggregate([
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' }
-          },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } },
-      { $limit: 12 }
-    ]);
-
     res.json({
-      stats: {
-        totalUsers,
-        activeUsers,
-        totalCodeSnippets,
-        totalForumPosts,
-        pendingReports
-      },
-      userGrowth
+      success: true,
+      data: { users, activeUsersLast7Days: activeUsers, newUsersLast7Days: newUsers, snippets, posts, enrollments },
     });
-  } catch (error) {
-    logger.error('Error fetching admin stats:', error);
-    res.status(500).json({ error: 'Failed to fetch dashboard statistics' });
-  }
-});
-
-// User management
-const userManagementSchema = Joi.object({
-  page: Joi.number().integer().min(1).default(1),
-  limit: Joi.number().integer().min(1).max(100).default(20),
-  search: Joi.string().max(100).optional(),
-  status: Joi.string().valid('active', 'inactive', 'suspended').optional(),
-  role: Joi.string().valid('user', 'premium', 'moderator', 'admin').optional(),
-  sortBy: Joi.string().valid('createdAt', 'lastLoginAt', 'username', 'email').default('createdAt'),
-  sortOrder: Joi.string().valid('asc', 'desc').default('desc')
-});
-
-router.get('/users', 
-  ValidationMiddleware.validateQuery(userManagementSchema),
-  async (req: Request, res: Response) => {
-    try {
-      const { page, limit, search, status, role, sortBy, sortOrder } = req.query;
-      
-      const filter: any = {};
-      if (search) {
-        filter.$or = [
-          { username: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } },
-          { firstName: { $regex: search, $options: 'i' } },
-          { lastName: { $regex: search, $options: 'i' } }
-        ];
-      }
-      if (status) filter.status = status;
-      if (role) filter.role = role;
-
-      const skip = ((page as number) - 1) * (limit as number);
-      const sort = { [sortBy as string]: sortOrder === 'asc' ? 1 : -1 };
-
-      const [users, total] = await Promise.all([
-        User.find(filter)
-          .select('-password -refreshTokens')
-          .sort(sort)
-          .skip(skip)
-          .limit(limit as number)
-          .lean(),
-        User.countDocuments(filter)
-      ]);
-
-      res.json({
-        users,
-        pagination: {
-          page: page as number,
-          limit: limit as number,
-          total,
-          pages: Math.ceil(total / (limit as number))
-        }
-      });
-    } catch (error) {
-      logger.error('Error fetching users:', error);
-      res.status(500).json({ error: 'Failed to fetch users' });
-    }
-  }
+  })
 );
 
-// Get specific user details
-router.get('/users/:userId', async (req: Request, res: Response) => {
-  try {
-    const { userId } = req.params;
-    
-    const user = await User.findById(userId)
-      .select('-password -refreshTokens')
-      .lean();
-    
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Get user's activity stats
-    const [codeSnippets, forumPosts, comments] = await Promise.all([
-      CodeSnippet.countDocuments({ author: userId }),
-      ForumPost.countDocuments({ author: userId }),
-      ForumPost.countDocuments({ 'comments.author': userId })
-    ]);
-
-    res.json({
-      user,
-      activity: {
-        codeSnippets,
-        forumPosts,
-        comments
-      }
-    });
-  } catch (error) {
-    logger.error('Error fetching user details:', error);
-    res.status(500).json({ error: 'Failed to fetch user details' });
-  }
-});
-
-// Update user status/role
-const updateUserSchema = Joi.object({
-  status: Joi.string().valid('active', 'inactive', 'suspended').optional(),
-  role: Joi.string().valid('user', 'premium', 'moderator', 'admin').optional(),
-  reason: Joi.string().max(500).optional()
-});
-
-router.patch('/users/:userId',
-  ValidationMiddleware.validate(updateUserSchema),
-  requireRole(['admin']), // Only admins can modify users
-  async (req: Request, res: Response) => {
-    try {
-      const { userId } = req.params;
-      const { status, role, reason } = req.body;
-      const adminId = (req as any).user.id;
-
-      const user = await User.findById(userId);
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
-      }
-
-      // Prevent modification of other admins (unless super admin)
-      if (user.role === 'admin' && (req as any).user.role !== 'super_admin') {
-        return res.status(403).json({ error: 'Cannot modify admin users' });
-      }
-
-      const updateData: any = {};
-      if (status) updateData.status = status;
-      if (role) updateData.role = role;
-      updateData.updatedAt = new Date();
-
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        updateData,
-        { new: true, select: '-password -refreshTokens' }
-      );
-
-      // Log the admin action
-      logger.info(`Admin action: User ${userId} modified by ${adminId}`, {
-        adminId,
-        userId,
-        changes: updateData,
-        reason
-      });
-
-      res.json({
-        message: 'User updated successfully',
-        user: updatedUser
-      });
-    } catch (error) {
-      logger.error('Error updating user:', error);
-      res.status(500).json({ error: 'Failed to update user' });
-    }
-  }
-);
-
-// Content moderation - Get reported content
-router.get('/moderation/reports', async (req: Request, res: Response) => {
-  try {
-    const { page = 1, limit = 20 } = req.query;
-    const skip = ((page as number) - 1) * (limit as number);
-
-    const [reportedPosts, reportedSnippets] = await Promise.all([
-      ForumPost.find({ status: 'reported' })
-        .populate('author', 'username email')
-        .sort({ updatedAt: -1 })
-        .skip(skip)
-        .limit(limit as number)
-        .lean(),
-      CodeSnippet.find({ isReported: true })
-        .populate('author', 'username email')
-        .sort({ updatedAt: -1 })
-        .skip(skip)
-        .limit(limit as number)
-        .lean()
-    ]);
-
-    res.json({
-      reports: {
-        posts: reportedPosts,
-        snippets: reportedSnippets
-      }
-    });
-  } catch (error) {
-    logger.error('Error fetching reports:', error);
-    res.status(500).json({ error: 'Failed to fetch reports' });
-  }
-});
-
-// Moderate content
-const moderateContentSchema = Joi.object({
-  action: Joi.string().valid('approve', 'remove', 'warn').required(),
-  reason: Joi.string().max(500).optional(),
-  type: Joi.string().valid('post', 'snippet').required(),
-  itemId: Joi.string().required()
-});
-
-router.post('/moderation/action',
-  ValidationMiddleware.validate(moderateContentSchema),
-  async (req: Request, res: Response) => {
-    try {
-      const { action, reason, type, itemId } = req.body;
-      const moderatorId = (req as any).user.id;
-
-      let result;
-      
-      if (type === 'post') {
-        const updateData: any = { status: action === 'approve' ? 'published' : 'removed' };
-        if (action === 'remove') {
-          updateData.removedAt = new Date();
-          updateData.removedBy = moderatorId;
-          updateData.removalReason = reason;
-        }
-        
-        result = await ForumPost.findByIdAndUpdate(itemId, updateData, { new: true });
-      } else if (type === 'snippet') {
-        const updateData: any = { 
-          isReported: false,
-          isPublic: action === 'approve'
-        };
-        if (action === 'remove') {
-          updateData.removedAt = new Date();
-          updateData.removedBy = moderatorId;
-          updateData.removalReason = reason;
-        }
-        
-        result = await CodeSnippet.findByIdAndUpdate(itemId, updateData, { new: true });
-      }
-
-      if (!result) {
-        return res.status(404).json({ error: 'Content not found' });
-      }
-
-      // Log moderation action
-      logger.info(`Moderation action: ${type} ${itemId} ${action} by ${moderatorId}`, {
-        moderatorId,
-        type,
-        itemId,
-        action,
-        reason
-      });
-
-      res.json({
-        message: `Content ${action} successfully`,
-        item: result
-      });
-    } catch (error) {
-      logger.error('Error moderating content:', error);
-      res.status(500).json({ error: 'Failed to moderate content' });
-    }
-  }
-);
-
-// System settings
-router.get('/settings', requireRole(['admin']), async (req: Request, res: Response) => {
-  try {
-    // This would typically come from a settings collection or config
-    const settings = {
-      maintenance: {
-        enabled: false,
-        message: '',
-        scheduledAt: null
-      },
-      features: {
-        registrationOpen: true,
-        codeExecutionEnabled: true,
-        forumEnabled: true,
-        collaborationEnabled: true
-      },
-      limits: {
-        maxCodeExecutionsPerDay: 100,
-        maxFileSize: 10 * 1024 * 1024, // 10MB
-        maxCodeLength: 10000
-      }
-    };
-
-    res.json({ settings });
-  } catch (error) {
-    logger.error('Error fetching settings:', error);
-    res.status(500).json({ error: 'Failed to fetch settings' });
-  }
-});
-
-// Update system settings
-const updateSettingsSchema = Joi.object({
-  maintenance: Joi.object({
-    enabled: Joi.boolean(),
-    message: Joi.string().max(500),
-    scheduledAt: Joi.date().optional()
-  }).optional(),
-  features: Joi.object({
-    registrationOpen: Joi.boolean(),
-    codeExecutionEnabled: Joi.boolean(),
-    forumEnabled: Joi.boolean(),
-    collaborationEnabled: Joi.boolean()
-  }).optional(),
-  limits: Joi.object({
-    maxCodeExecutionsPerDay: Joi.number().integer().min(1).max(1000),
-    maxFileSize: Joi.number().integer().min(1024).max(100 * 1024 * 1024),
-    maxCodeLength: Joi.number().integer().min(100).max(100000)
-  }).optional()
-});
-
-router.patch('/settings',
-  requireRole(['admin']),
-  ValidationMiddleware.validate(updateSettingsSchema),
-  async (req: Request, res: Response) => {
-    try {
-      const adminId = (req as any).user.id;
-      const updates = req.body;
-
-      // In a real application, you would save these to a database
-      // For now, we'll just log the changes
-      logger.info(`System settings updated by admin ${adminId}`, {
-        adminId,
-        updates
-      });
-
-      res.json({
-        message: 'Settings updated successfully',
-        settings: updates
-      });
-    } catch (error) {
-      logger.error('Error updating settings:', error);
-      res.status(500).json({ error: 'Failed to update settings' });
-    }
-  }
-);
-
-// System logs
-router.get('/logs', 
-  requireRole(['admin']),
-  async (req: Request, res: Response) => {
-    try {
-      const { level = 'all', limit = 100, offset = 0 } = req.query;
-      
-      // This would typically read from your logging system
-      // For demonstration, returning mock data
-      const logs = [
-        {
-          timestamp: new Date(),
-          level: 'info',
-          message: 'User login successful',
-          metadata: { userId: '123', ip: '192.168.1.1' }
-        },
-        {
-          timestamp: new Date(Date.now() - 60000),
-          level: 'error',
-          message: 'Code execution failed',
-          metadata: { userId: '456', error: 'Compilation error' }
-        }
+router.get(
+  '/users',
+  moderator,
+  handle(async (req, res) => {
+    const q = parse(
+      z.object({
+        search: z.string().max(100).optional(),
+        role: z.nativeEnum(UserRole).optional(),
+        active: z.enum(['true', 'false']).optional(),
+        limit: z.coerce.number().int().min(1).max(100).default(25),
+        offset: z.coerce.number().int().min(0).default(0),
+      }),
+      req.query
+    );
+    const where: Prisma.UserWhereInput = {};
+    if (q.role) where.role = q.role;
+    if (q.active) where.isActive = q.active === 'true';
+    if (q.search) {
+      where.OR = [
+        { username: { contains: q.search, mode: 'insensitive' } },
+        { email: { contains: q.search, mode: 'insensitive' } },
       ];
-
-      res.json({
-        logs: logs.slice(offset as number, (offset as number) + (limit as number)),
-        total: logs.length
-      });
-    } catch (error) {
-      logger.error('Error fetching logs:', error);
-      res.status(500).json({ error: 'Failed to fetch logs' });
     }
-  }
+    const [items, total] = await prisma.$transaction([
+      prisma.user.findMany({ where, select: adminUserSelect, orderBy: { joinedAt: 'desc' }, skip: q.offset, take: q.limit }),
+      prisma.user.count({ where }),
+    ]);
+    res.json({ success: true, data: { items, total, limit: q.limit, offset: q.offset } });
+  })
 );
+
+router.get(
+  '/users/:userId',
+  moderator,
+  handle(async (req, res) => {
+    const { userId } = parse(userIdParam, req.params);
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        ...adminUserSelect,
+        _count: { select: { codeSnippets: true, forumPosts: true, forumComments: true, enrollments: true } },
+      },
+    });
+    if (!user) throw new ApiError(404, 'User not found');
+    res.json({ success: true, data: { user } });
+  })
+);
+
+router.patch(
+  '/users/:userId',
+  admin,
+  handle(async (req, res) => {
+    const { userId } = parse(userIdParam, req.params);
+    const body = parse(
+      z.object({ role: z.nativeEnum(UserRole).optional(), isActive: z.boolean().optional() }).strict(),
+      req.body
+    );
+    const actor = req.user;
+    if (!actor) throw new ApiError(401, 'Authentication required');
+    if (userId === actor.id) throw new ApiError(400, 'Administrators cannot change their own account here');
+    if (body.role === 'SUPER_ADMIN' && !hasRoleAtLeast(actor, 'SUPER_ADMIN')) {
+      throw new ApiError(403, 'Only a super administrator can grant SUPER_ADMIN');
+    }
+    const data: Prisma.UserUpdateInput = {};
+    if (body.role !== undefined) data.role = body.role;
+    if (body.isActive !== undefined) data.isActive = body.isActive;
+    const user = await updateUser(userId, data);
+    logger.info('Admin updated user', { actorId: actor.id, userId, changes: body });
+    res.json({ success: true, data: { user } });
+  })
+);
+
+router.post(
+  '/users/:userId/ban',
+  moderator,
+  handle(async (req, res) => {
+    const { userId } = parse(userIdParam, req.params);
+    const { reason } = parse(z.object({ reason: z.string().trim().min(3).max(200) }), req.body);
+    const actorId = requireUserId(req);
+    if (userId === actorId) throw new ApiError(400, 'You cannot ban yourself');
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (!target) throw new ApiError(404, 'User not found');
+    if (req.user && !hasRoleAtLeast(req.user, target.role)) {
+      throw new ApiError(403, 'Cannot ban a user with a higher role');
+    }
+    const [user] = await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { isActive: false, deactivatedAt: new Date(), deactivationReason: `banned: ${reason}` },
+        select: adminUserSelect,
+      }),
+      prisma.userSession.updateMany({ where: { userId }, data: { isActive: false } }),
+    ]);
+    logger.warn('User banned', { actorId, userId, reason });
+    res.json({ success: true, data: { user } });
+  })
+);
+
+router.post(
+  '/users/:userId/unban',
+  moderator,
+  handle(async (req, res) => {
+    const { userId } = parse(userIdParam, req.params);
+    const user = await updateUser(userId, { isActive: true, deactivatedAt: null, deactivationReason: null });
+    logger.info('User unbanned', { actorId: requireUserId(req), userId });
+    res.json({ success: true, data: { user } });
+  })
+);
+
+router.patch(
+  '/posts/:postId',
+  moderator,
+  handle(async (req, res) => {
+    const { postId } = parse(z.object({ postId: z.string().min(1).max(64) }), req.params);
+    const body = parse(
+      z
+        .object({
+          isPinned: z.boolean().optional(),
+          isLocked: z.boolean().optional(),
+          status: z.nativeEnum(PostStatus).optional(),
+        })
+        .strict(),
+      req.body
+    );
+    const data: Prisma.ForumPostUpdateInput = {};
+    if (body.isPinned !== undefined) data.isPinned = body.isPinned;
+    if (body.isLocked !== undefined) data.isLocked = body.isLocked;
+    if (body.status !== undefined) data.status = body.status;
+    try {
+      const post = await prisma.forumPost.update({ where: { id: postId }, data });
+      logger.info('Moderator updated post', { actorId: requireUserId(req), postId, changes: body });
+      res.json({ success: true, data: { post } });
+    } catch (error) {
+      throw notFound(error, 'Post not found');
+    }
+  })
+);
+
+router.get(
+  '/reports',
+  moderator,
+  handle(async (req, res) => {
+    const q = parse(
+      z.object({
+        status: z.nativeEnum(ReportStatus).default(ReportStatus.OPEN),
+        limit: z.coerce.number().int().min(1).max(100).default(25),
+        offset: z.coerce.number().int().min(0).default(0),
+      }),
+      req.query
+    );
+    const where = { status: q.status };
+    const [items, total] = await prisma.$transaction([
+      prisma.postReport.findMany({
+        where,
+        orderBy: { createdAt: 'asc' },
+        skip: q.offset,
+        take: q.limit,
+        include: {
+          post: { select: { id: true, title: true, status: true, userId: true } },
+          reporter: { select: { id: true, username: true } },
+        },
+      }),
+      prisma.postReport.count({ where }),
+    ]);
+    res.json({ success: true, data: { items, total, limit: q.limit, offset: q.offset } });
+  })
+);
+
+router.post(
+  '/reports/:reportId/resolve',
+  moderator,
+  handle(async (req, res) => {
+    const { reportId } = parse(z.object({ reportId: z.string().min(1).max(64) }), req.params);
+    const { action } = parse(z.object({ action: z.enum(['action', 'dismiss']) }), req.body);
+    const resolvedById = requireUserId(req);
+    const report = await prisma.postReport.findUnique({ where: { id: reportId } });
+    if (!report) throw new ApiError(404, 'Report not found');
+    const status = action === 'action' ? ReportStatus.ACTIONED : ReportStatus.DISMISSED;
+    const now = new Date();
+    await prisma.$transaction([
+      // Resolving one report resolves every open report on the same post.
+      prisma.postReport.updateMany({
+        where: { postId: report.postId, status: ReportStatus.OPEN },
+        data: { status, resolvedById, resolvedAt: now },
+      }),
+      ...(action === 'action'
+        ? [prisma.forumPost.update({ where: { id: report.postId }, data: { status: PostStatus.HIDDEN } })]
+        : []),
+    ]);
+    logger.info('Report resolved', { reportId, postId: report.postId, action, resolvedById });
+    res.json({ success: true, data: { postId: report.postId, status } });
+  })
+);
+
+router.get(
+  '/settings',
+  admin,
+  handle(async (_req, res) => {
+    res.json({ success: true, data: await prisma.systemConfig.findMany({ orderBy: { key: 'asc' } }) });
+  })
+);
+
+router.put(
+  '/settings/:key',
+  admin,
+  handle(async (req, res) => {
+    const { key } = parse(z.object({ key: z.string().regex(/^[a-z][a-z0-9_.]{1,63}$/) }), req.params);
+    const body = parse(
+      z.object({ value: z.unknown(), description: z.string().max(500).optional() }),
+      req.body
+    );
+    if (body.value === undefined) throw new ApiError(400, 'value is required');
+    const value = body.value as Prisma.InputJsonValue;
+    const updatedBy = requireUserId(req);
+    const setting = await prisma.systemConfig.upsert({
+      where: { key },
+      create: { key, value, description: body.description ?? null, updatedBy },
+      update: { value, updatedBy, ...(body.description !== undefined ? { description: body.description } : {}) },
+    });
+    res.json({ success: true, data: setting });
+  })
+);
+
+async function updateUser(userId: string, data: Prisma.UserUpdateInput) {
+  try {
+    return await prisma.user.update({ where: { id: userId }, data, select: adminUserSelect });
+  } catch (error) {
+    throw notFound(error, 'User not found');
+  }
+}
+
+function notFound(error: unknown, message: string): unknown {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025'
+    ? new ApiError(404, message)
+    : error;
+}
 
 export default router;

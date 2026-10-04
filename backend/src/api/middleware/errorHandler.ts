@@ -1,15 +1,26 @@
-import { Request, Response, NextFunction } from 'express';
-import { ZodError } from 'zod';
-import { PrismaClientKnownRequestError, PrismaClientValidationError } from '@prisma/client/runtime/library';
+import type { Server } from 'http';
+
+import {
+  PrismaClientKnownRequestError,
+  PrismaClientValidationError,
+} from '@prisma/client/runtime/library';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
+import { ZodError, type ZodTypeAny } from 'zod';
+
+import { config } from '../../config';
+import { ApiError } from '../../utils/errors';
 import { logger } from '../../utils/logger';
-import config from '../../config';
+
+const isDevelopment = (): boolean => config.NODE_ENV === 'development';
 
 // Custom error class
 export class AppError extends Error {
   public statusCode: number;
   public status: string;
   public isOperational: boolean;
-  public code?: string;
+  public code: string | undefined;
+  /** Client-safe structured detail (for example validation issues), sent with 4xx responses. */
+  public details: unknown;
 
   constructor(message: string, statusCode: number, code?: string) {
     super(message);
@@ -36,7 +47,7 @@ export class ValidationError extends AppError {
 export class DatabaseError extends AppError {
   constructor(message: string, originalError?: Error) {
     super(message, 500, 'DATABASE_ERROR');
-    if (originalError) {
+    if (originalError?.stack) {
       this.stack = originalError.stack;
     }
   }
@@ -44,21 +55,21 @@ export class DatabaseError extends AppError {
 
 // Authentication error class
 export class AuthenticationError extends AppError {
-  constructor(message: string = 'Authentication required') {
+  constructor(message = 'Authentication required') {
     super(message, 401, 'AUTHENTICATION_ERROR');
   }
 }
 
 // Authorization error class
 export class AuthorizationError extends AppError {
-  constructor(message: string = 'Insufficient permissions') {
+  constructor(message = 'Insufficient permissions') {
     super(message, 403, 'AUTHORIZATION_ERROR');
   }
 }
 
 // Rate limit error class
 export class RateLimitError extends AppError {
-  constructor(message: string = 'Too many requests') {
+  constructor(message = 'Too many requests') {
     super(message, 429, 'RATE_LIMIT_ERROR');
   }
 }
@@ -68,11 +79,10 @@ const handleZodError = (error: ZodError): ValidationError => {
   const errors: Record<string, string[]> = {};
   
   error.errors.forEach((err) => {
-    const field = err.path.join('.');
-    if (!errors[field]) {
-      errors[field] = [];
-    }
-    errors[field].push(err.message);
+    const field = err.path.join('.') || 'body';
+    const messages = errors[field] ?? [];
+    messages.push(err.message);
+    errors[field] = messages;
   });
 
   return new ValidationError('Validation failed', errors);
@@ -81,16 +91,17 @@ const handleZodError = (error: ZodError): ValidationError => {
 // Handle Prisma errors
 const handlePrismaError = (error: PrismaClientKnownRequestError): AppError => {
   switch (error.code) {
-    case 'P2002':
+    case 'P2002': {
       // Unique constraint violation
-      const field = error.meta?.target as string[] | undefined;
-      const fieldName = field?.[0] || 'field';
+      const target = error.meta?.['target'];
+      const fieldName = Array.isArray(target) && typeof target[0] === 'string' ? target[0] : 'field';
       return new AppError(
         `A record with this ${fieldName} already exists`,
         409,
         'DUPLICATE_ENTRY'
       );
-    
+    }
+
     case 'P2003':
       // Foreign key constraint violation
       return new AppError(
@@ -116,7 +127,7 @@ const handlePrismaError = (error: PrismaClientKnownRequestError): AppError => {
       );
     
     default:
-      logger.error('Unhandled Prisma error:', error);
+      logger.error('Unhandled Prisma error', { code: error.code, message: error.message });
       return new DatabaseError('Database operation failed');
   }
 };
@@ -140,15 +151,14 @@ const handleJWTExpiredError = (): AuthenticationError => {
 
 // Send error response in development
 const sendErrorDev = (err: AppError, res: Response): void => {
+  // Same shape as production so clients parse one format; adds the stack for debugging.
   res.status(err.statusCode).json({
     success: false,
-    error: {
-      status: err.status,
-      message: err.message,
-      code: err.code,
-      stack: err.stack,
-      ...(err instanceof ValidationError && { errors: err.errors }),
-    },
+    message: err.message,
+    code: err.code,
+    ...(err instanceof ValidationError && { errors: err.errors }),
+    ...(err.details !== undefined ? { details: err.details } : {}),
+    stack: err.stack,
   });
 };
 
@@ -161,6 +171,7 @@ const sendErrorProd = (err: AppError, res: Response): void => {
       message: err.message,
       code: err.code,
       ...(err instanceof ValidationError && { errors: err.errors }),
+      ...(err.statusCode < 500 && err.details !== undefined ? { details: err.details } : {}),
     });
   } else {
     // Programming errors: don't leak error details
@@ -174,28 +185,47 @@ const sendErrorProd = (err: AppError, res: Response): void => {
   }
 };
 
-// Global error handling middleware
+function hasErrorsRecord(err: Error): err is Error & { errors: Record<string, { message?: unknown }> } {
+  const candidate = (err as { errors?: unknown }).errors;
+  return typeof candidate === 'object' && candidate !== null && !Array.isArray(candidate);
+}
+
+function getClientErrorStatus(err: Error): number | null {
+  const { status, statusCode } = err as { status?: unknown; statusCode?: unknown };
+  const value = typeof statusCode === 'number' ? statusCode : status;
+  return typeof value === 'number' && value >= 400 && value < 500 ? value : null;
+}
+
+// Global error handling middleware (Express identifies error handlers by arity, so `_next` stays)
 export const errorHandler = (
   err: Error,
   req: Request,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): void => {
-  let error = err as AppError;
+  let error: AppError;
 
   // Log error
-  logger.error('Error occurred:', {
+  logger.error('Error occurred', {
     message: err.message,
     stack: err.stack,
     url: req.url,
     method: req.method,
     ip: req.ip,
     userAgent: req.headers['user-agent'],
-    userId: (req as any).user?.id,
+    userId: req.user?.id,
   });
 
   // Handle specific error types
-  if (err instanceof ZodError) {
+  if (err instanceof AppError) {
+    error = err;
+  } else if (err instanceof ApiError) {
+    error = new AppError(err.message, err.statusCode);
+    error.details = err.details;
+  } else if (err instanceof SyntaxError && 'body' in err) {
+    // Malformed JSON body rejected by express.json()
+    error = new AppError('Invalid JSON in request body', 400, 'INVALID_JSON');
+  } else if (err instanceof ZodError) {
     error = handleZodError(err);
   } else if (err instanceof PrismaClientKnownRequestError) {
     error = handlePrismaError(err);
@@ -215,23 +245,24 @@ export const errorHandler = (
   } else if (err.name === 'CastError') {
     // Handle MongoDB cast errors
     error = new AppError('Invalid ID format', 400, 'INVALID_ID');
-  } else if (err.name === 'ValidationError') {
-    // Handle Mongoose validation errors
+  } else if (err.name === 'ValidationError' && hasErrorsRecord(err)) {
+    // Validation errors from libraries that report a field -> error map
     const errors: Record<string, string[]> = {};
-    Object.keys((err as any).errors).forEach((key) => {
-      errors[key] = [(err as any).errors[key].message];
-    });
+    for (const [key, value] of Object.entries(err.errors)) {
+      errors[key] = [typeof value.message === 'string' ? value.message : 'Invalid value'];
+    }
     error = new ValidationError('Validation failed', errors);
-  } else if (!error.statusCode) {
-    // Convert unknown errors to AppError
-    error = new AppError(
-      config.nodeEnv === 'development' ? err.message : 'Something went wrong',
-      500
-    );
+  } else if (getClientErrorStatus(err) !== null) {
+    // Errors from middleware such as body-parser carry a 4xx status (e.g. 413 payload too large)
+    error = new AppError(err.message, getClientErrorStatus(err) ?? 400);
+  } else {
+    // Convert unknown errors to a non-operational AppError (details hidden in production)
+    error = new AppError(isDevelopment() ? err.message : 'Something went wrong', 500);
+    error.isOperational = false;
   }
 
   // Send error response
-  if (config.nodeEnv === 'development') {
+  if (isDevelopment()) {
     sendErrorDev(error, res);
   } else {
     sendErrorProd(error, res);
@@ -239,57 +270,40 @@ export const errorHandler = (
 };
 
 // 404 Not Found handler
-export const notFoundHandler = (
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void => {
+export const notFoundHandler = (req: Request, _res: Response, next: NextFunction): void => {
   const error = new AppError(`Route ${req.originalUrl} not found`, 404, 'ROUTE_NOT_FOUND');
   next(error);
 };
 
-// Async error wrapper
-export const catchAsync = (fn: Function) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
+// Async error wrapper: forwards rejections to the Express error handler
+export const catchAsync = (
+  fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>
+): RequestHandler => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    fn(req, res, next).catch(next);
   };
 };
 
-// Validation middleware factory
-export const validateRequest = (schema: any, property: 'body' | 'query' | 'params' = 'body') => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const data = req[property];
-      const result = schema.parse(data);
-      req[property] = result;
-      next();
-    } catch (error) {
-      if (error instanceof ZodError) {
-        next(handleZodError(error));
-      } else {
-        next(error);
-      }
+// Zod validation middleware factory; replaces the validated property with the parsed value
+export const validateRequest = (
+  schema: ZodTypeAny,
+  property: 'body' | 'query' | 'params' = 'body'
+): RequestHandler => {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    const result = schema.safeParse(req[property]);
+    if (!result.success) {
+      next(handleZodError(result.error));
+      return;
     }
+    // The parsed value has the shape the schema describes; Express types these loosely.
+    (req as unknown as Record<typeof property, unknown>)[property] = result.data;
+    next();
   };
 };
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  // Gracefully close server and exit process
-  process.exit(1);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error: Error) => {
-  logger.error('Uncaught Exception:', error);
-  // Gracefully close server and exit process
-  process.exit(1);
-});
 
 // Graceful shutdown handler
-export const gracefulShutdown = (server: any) => {
-  const shutdown = (signal: string) => {
+export const gracefulShutdown = (server: Server): void => {
+  const shutdown = (signal: string): void => {
     logger.info(`${signal} received, starting graceful shutdown...`);
     
     server.close(() => {
@@ -306,7 +320,7 @@ export const gracefulShutdown = (server: any) => {
     setTimeout(() => {
       logger.error('Could not close connections in time, forcefully shutting down');
       process.exit(1);
-    }, 30000);
+    }, 30000).unref();
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -314,7 +328,7 @@ export const gracefulShutdown = (server: any) => {
 };
 
 // Error reporting utility
-export const reportError = (error: Error, context?: Record<string, any>) => {
+export const reportError = (error: Error, context?: Record<string, unknown>): void => {
   const errorInfo = {
     message: error.message,
     stack: error.stack,
@@ -325,20 +339,17 @@ export const reportError = (error: Error, context?: Record<string, any>) => {
   // Log to file/service
   logger.error('Error reported:', errorInfo);
 
-  // Send to external error reporting service (Sentry, etc.)
-  if (config.nodeEnv === 'production') {
-    // Example: Sentry.captureException(error, { extra: context });
-  }
+  // An external error reporting service (Sentry, etc.) would be called here in production.
 };
 
 // Health check middleware
-export const healthCheck = (req: Request, res: Response) => {
+export const healthCheck = (_req: Request, res: Response): void => {
   const healthInfo = {
     status: 'OK',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: config.nodeEnv,
-    version: process.env.npm_package_version || '1.0.0',
+    environment: config.NODE_ENV,
+    version: process.env['npm_package_version'] ?? '1.0.0',
     memory: process.memoryUsage(),
     cpu: process.cpuUsage(),
   };

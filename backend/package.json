@@ -16,18 +16,18 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "dev:debug": "tsx watch --inspect src/server.ts",
-    "build": "tsc && tsc-alias",
+    "build": "prisma generate && tsc && tsc-alias",
     "build:watch": "tsc --watch",
     "start": "node dist/server.js",
     "start:prod": "NODE_ENV=production node dist/server.js",
-    "test": "jest",
+    "test": "prisma generate && jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix",
+    "test:coverage": "prisma generate && jest --coverage",
+    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
+    "lint:fix": "eslint 'src/**/*.ts' 'tests/**/*.ts' --fix",
     "format": "prettier --write \"src/**/*.{ts,js,json}\"",
     "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
-    "type-check": "tsc --noEmit",
+    "type-check": "prisma generate && tsc --noEmit",
     "clean": "rimraf dist coverage",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -40,7 +40,8 @@
     "db:deploy": "prisma migrate deploy && npm run db:seed",
     "docker:build": "docker build -t cpp-mastery-backend .",
     "docker:run": "docker run -p 8000:8000 cpp-mastery-backend",
-    "health-check": "curl -f http://localhost:8000/api/health || exit 1"
+    "health-check": "curl -f http://localhost:8000/api/health || exit 1",
+    "test:e2e": "prisma migrate deploy && tsx prisma/seed.ts && jest tests/e2e"
   },
   "dependencies": {
     "@prisma/client": "^5.4.2",
@@ -95,44 +96,6 @@
     "prisma": "^5.4.2",
     "rimraf": "^5.0.1",
     "prettier": "^3.0.3"
-  },
-  "jest": {
-    "preset": "ts-jest",
-    "testEnvironment": "node",
-    "setupFilesAfterEnv": [
-      "<rootDir>/tests/setup.ts"
-    ],
-    "testMatch": [
-      "<rootDir>/tests/**/*.test.ts"
-    ],
-    "collectCoverageFrom": [
-      "src/**/*.ts",
-      "!src/**/*.d.ts",
-      "!src/types/**",
-      "!src/**/*.interface.ts"
-    ],
-    "coverageDirectory": "coverage",
-    "coverageReporters": [
-      "text",
-      "lcov",
-      "html"
-    ],
-    "coverageThreshold": {
-      "global": {
-        "branches": 80,
-        "functions": 80,
-        "lines": 80,
-        "statements": 80
-      }
-    },
-    "moduleNameMapper": {
-      "^@/(.*)$": "<rootDir>/src/$1",
-      "^@config/(.*)$": "<rootDir>/src/config/$1",
-      "^@services/(.*)$": "<rootDir>/src/services/$1",
-      "^@utils/(.*)$": "<rootDir>/src/utils/$1",
-      "^@middleware/(.*)$": "<rootDir>/src/api/middleware/$1",
-      "^@routes/(.*)$": "<rootDir>/src/api/routes/$1"
-    }
   },
   "prettier": {
     "semi": true,

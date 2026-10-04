@@ -1,3 +1,7 @@
+import type { SafeUser, UserRole } from './user';
+
+export { UserRole } from './user';
+
 export interface JWTPayload {
   userId: string;
   email: string;
@@ -54,16 +58,9 @@ export interface EmailVerificationRequest {
   token: string;
 }
 
-export enum UserRole {
-  STUDENT = 'STUDENT',
-  INSTRUCTOR = 'INSTRUCTOR',
-  ADMIN = 'ADMIN',
-  MODERATOR = 'MODERATOR'
-}
-
 export interface AuthResponse {
   success: boolean;
-  user?: Partial<User>;
+  user?: Partial<SafeUser>;
   tokens?: AuthTokens;
   message?: string;
   error?: string;

@@ -1,3 +1,5 @@
+import type { LogLevel } from './monitoring';
+
 export interface AppConfig {
   app: {
     name: string;

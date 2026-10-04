@@ -1,9 +1,11 @@
+import type { SafeUser } from './user';
+
 export interface Collaboration {
   id: string;
   title: string;
   description?: string;
   ownerId: string;
-  owner?: Partial<User>;
+  owner?: Partial<SafeUser>;
   code?: string;
   language: string;
   isActive: boolean;
@@ -17,7 +19,7 @@ export interface Collaboration {
 export interface CollaborationParticipant {
   id: string;
   userId: string;
-  user?: Partial<User>;
+  user?: Partial<SafeUser>;
   collaborationId: string;
   role: CollaborationRole;
   permissions: ParticipantPermissions;
@@ -106,7 +108,7 @@ export interface ChatMessage {
   id: string;
   collaborationId: string;
   userId: string;
-  user?: Partial<User>;
+  user?: Partial<SafeUser>;
   content: string;
   type: MessageType;
   replyTo?: string;

@@ -1215,7 +1215,7 @@ export class ValidationError extends Error {
 export class AuthenticationError extends Error {
   public code: string;
   
-  constructor(message: string, code: string = 'AUTH_FAILED') {
+  constructor(message: string, code = 'AUTH_FAILED') {
     super(message);
     this.name = 'AuthenticationError';
     this.code = code;
@@ -1224,9 +1224,9 @@ export class AuthenticationError extends Error {
 
 export class AuthorizationError extends Error {
   public code: string;
-  public requiredPermission?: string;
+  public requiredPermission: string | undefined;
   
-  constructor(message: string, code: string = 'FORBIDDEN', requiredPermission?: string) {
+  constructor(message: string, code = 'FORBIDDEN', requiredPermission?: string) {
     super(message);
     this.name = 'AuthorizationError';
     this.code = code;
@@ -1236,7 +1236,7 @@ export class AuthorizationError extends Error {
 
 export class NotFoundError extends Error {
   public resource: string;
-  public resourceId?: string;
+  public resourceId: string | undefined;
   
   constructor(message: string, resource: string, resourceId?: string) {
     super(message);

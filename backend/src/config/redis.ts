@@ -1,37 +1,34 @@
-import Redis from 'ioredis';
+import Redis, { type RedisOptions } from 'ioredis';
+
+import { getErrorMessage } from '../utils/errors';
 import { logger } from '../utils/logger';
-import { config, redisConfig } from './index';
+
+import { redisConfig } from './index';
 
 // Redis client instances
 let redisClient: Redis | null = null;
 let redisSubscriber: Redis | null = null;
 let redisPublisher: Redis | null = null;
 
-// Connection retry configuration
-const retryConfig = {
-  retryDelayOnFailover: 100,
-  retryDelayOnClusterDown: 300,
+// Connection configuration shared by all clients
+const baseOptions: RedisOptions = {
   enableOfflineQueue: false,
   maxRetriesPerRequest: 3,
   lazyConnect: true,
+  keyPrefix: redisConfig.keyPrefix,
 };
 
 /**
  * Create Redis client with proper configuration
  */
-function createRedisClient(purpose: string = 'main'): Redis {
-  const client = redisConfig.url 
-    ? new Redis(redisConfig.url, {
-        ...retryConfig,
-        keyPrefix: redisConfig.keyPrefix,
-        lazyConnect: true,
-      })
+function createRedisClient(purpose = 'main'): Redis {
+  const client = redisConfig.url
+    ? new Redis(redisConfig.url, baseOptions)
     : new Redis({
+        ...baseOptions,
         host: redisConfig.host,
         port: redisConfig.port,
-        password: redisConfig.password,
-        keyPrefix: redisConfig.keyPrefix,
-        ...retryConfig,
+        ...(redisConfig.password ? { password: redisConfig.password } : {}),
       });
 
   // Event listeners
@@ -43,15 +40,15 @@ function createRedisClient(purpose: string = 'main'): Redis {
     logger.info(`🚀 Redis ${purpose} client ready`);
   });
 
-  client.on('error', (error) => {
-    logger.error(`❌ Redis ${purpose} client error:`, error);
+  client.on('error', (error: Error) => {
+    logger.error(`Redis ${purpose} client error`, { error: error.message });
   });
 
   client.on('close', () => {
     logger.warn(`⚠️ Redis ${purpose} client connection closed`);
   });
 
-  client.on('reconnecting', (delay) => {
+  client.on('reconnecting', (delay: number) => {
     logger.info(`🔄 Redis ${purpose} client reconnecting in ${delay}ms`);
   });
 
@@ -98,9 +95,16 @@ export async function connectRedis(): Promise<{
 
     return { client: redisClient, subscriber: redisSubscriber, publisher: redisPublisher };
   } catch (error) {
-    logger.error('❌ Failed to connect to Redis:', error);
-    throw new Error(`Redis connection failed: ${error.message}`);
+    logger.error('Failed to connect to Redis', { error: getErrorMessage(error) });
+    throw new Error(`Redis connection failed: ${getErrorMessage(error)}`);
   }
+}
+
+/**
+ * Whether the main Redis client has been connected.
+ */
+export function isRedisConnected(): boolean {
+  return redisClient !== null && redisClient.status === 'ready';
 }
 
 /**
@@ -138,32 +142,37 @@ export function getRedisPublisher(): Redis {
  */
 export async function checkRedisHealth(): Promise<{
   status: boolean;
-  details: Record<string, any>;
+  details: Record<string, string | number | boolean | undefined>;
 }> {
-  const health = {
+  const health: {
+    status: boolean;
+    details: Record<string, string | number | boolean | undefined>;
+  } = {
     status: false,
-    details: {} as Record<string, any>,
+    details: {},
   };
 
   try {
     if (redisClient) {
       const info = await redisClient.info();
       const dbSize = await redisClient.dbsize();
-      const memory = await redisClient.memory('usage');
-      
+      const lines = info.split('\n');
+      const field = (name: string): string | undefined =>
+        lines.find((line) => line.startsWith(`${name}:`))?.split(':')[1]?.trim();
+
       health.status = true;
       health.details = {
         connected: true,
         dbSize,
-        memoryUsage: memory,
-        uptime: info.split('\n').find(line => line.startsWith('uptime_in_seconds')),
-        version: info.split('\n').find(line => line.startsWith('redis_version')),
+        memoryUsage: field('used_memory_human'),
+        uptime: field('uptime_in_seconds'),
+        version: field('redis_version'),
       };
     } else {
       health.details = { connected: false, error: 'Client not initialized' };
     }
   } catch (error) {
-    health.details = { connected: false, error: error.message };
+    health.details = { connected: false, error: getErrorMessage(error) };
   }
 
   return health;
@@ -173,16 +182,14 @@ export async function checkRedisHealth(): Promise<{
  * Cache management utilities
  */
 export class CacheManager {
-  private client: Redis;
-  
-  constructor() {
-    this.client = getRedisClient();
+  private get client(): Redis {
+    return getRedisClient();
   }
 
   /**
    * Set cache with TTL
    */
-  async set(key: string, value: any, ttlSeconds: number = 3600): Promise<void> {
+  async set(key: string, value: unknown, ttlSeconds = 3600): Promise<void> {
     const serializedValue = JSON.stringify(value);
     await this.client.setex(key, ttlSeconds, serializedValue);
   }
@@ -220,7 +227,7 @@ export class CacheManager {
   /**
    * Set cache with pattern-based expiration
    */
-  async setPattern(pattern: string, value: any, ttlSeconds: number = 3600): Promise<void> {
+  async setPattern(pattern: string, value: unknown, ttlSeconds = 3600): Promise<void> {
     await this.set(pattern, value, ttlSeconds);
   }
 
@@ -237,7 +244,7 @@ export class CacheManager {
   /**
    * Increment counter
    */
-  async increment(key: string, increment: number = 1): Promise<number> {
+  async increment(key: string, increment = 1): Promise<number> {
     return await this.client.incrby(key, increment);
   }
 
@@ -254,7 +261,7 @@ export class CacheManager {
    */
   async mget<T>(keys: string[]): Promise<(T | null)[]> {
     const values = await this.client.mget(...keys);
-    return values.map(value => {
+    return values.map((value) => {
       if (!value) return null;
       try {
         return JSON.parse(value) as T;
@@ -267,7 +274,7 @@ export class CacheManager {
   /**
    * Set multiple keys
    */
-  async mset(keyValuePairs: Record<string, any>, ttlSeconds?: number): Promise<void> {
+  async mset(keyValuePairs: Record<string, unknown>, ttlSeconds?: number): Promise<void> {
     const pipeline = this.client.pipeline();
     
     Object.entries(keyValuePairs).forEach(([key, value]) => {
@@ -287,17 +294,16 @@ export class CacheManager {
  * Session management utilities
  */
 export class SessionManager {
-  private client: Redis;
-  private keyPrefix: string = 'session:';
-  
-  constructor() {
-    this.client = getRedisClient();
+  private readonly keyPrefix = 'session:';
+
+  private get client(): Redis {
+    return getRedisClient();
   }
 
   /**
    * Create session
    */
-  async createSession(sessionId: string, data: any, ttlSeconds: number = 86400): Promise<void> {
+  async createSession(sessionId: string, data: unknown, ttlSeconds = 86400): Promise<void> {
     const key = `${this.keyPrefix}${sessionId}`;
     await this.client.setex(key, ttlSeconds, JSON.stringify(data));
   }
@@ -321,7 +327,7 @@ export class SessionManager {
   /**
    * Update session
    */
-  async updateSession(sessionId: string, data: any, ttlSeconds?: number): Promise<void> {
+  async updateSession(sessionId: string, data: unknown, ttlSeconds?: number): Promise<void> {
     const key = `${this.keyPrefix}${sessionId}`;
     
     if (ttlSeconds) {
@@ -345,7 +351,7 @@ export class SessionManager {
   /**
    * Extend session TTL
    */
-  async extendSession(sessionId: string, ttlSeconds: number = 86400): Promise<boolean> {
+  async extendSession(sessionId: string, ttlSeconds = 86400): Promise<boolean> {
     const key = `${this.keyPrefix}${sessionId}`;
     const result = await this.client.expire(key, ttlSeconds);
     return result === 1;
@@ -356,18 +362,18 @@ export class SessionManager {
  * Pub/Sub utilities
  */
 export class PubSubManager {
-  private publisher: Redis;
-  private subscriber: Redis;
-  
-  constructor() {
-    this.publisher = getRedisPublisher();
-    this.subscriber = getRedisSubscriber();
+  private get publisher(): Redis {
+    return getRedisPublisher();
+  }
+
+  private get subscriber(): Redis {
+    return getRedisSubscriber();
   }
 
   /**
    * Publish message to channel
    */
-  async publish(channel: string, message: any): Promise<number> {
+  async publish(channel: string, message: unknown): Promise<number> {
     const serializedMessage = JSON.stringify(message);
     return await this.publisher.publish(channel, serializedMessage);
   }
@@ -375,11 +381,11 @@ export class PubSubManager {
   /**
    * Subscribe to channel
    */
-  async subscribe(channel: string, callback: (message: any) => void): Promise<void> {
-    this.subscriber.on('message', (receivedChannel, message) => {
+  async subscribe(channel: string, callback: (message: unknown) => void): Promise<void> {
+    this.subscriber.on('message', (receivedChannel: string, message: string) => {
       if (receivedChannel === channel) {
         try {
-          const parsedMessage = JSON.parse(message);
+          const parsedMessage: unknown = JSON.parse(message);
           callback(parsedMessage);
         } catch {
           callback(message);
@@ -421,24 +427,16 @@ export async function disconnectRedis(): Promise<void> {
       logger.info('✅ Redis publisher disconnected');
     }
   } catch (error) {
-    logger.error('❌ Error during Redis disconnection:', error);
+    logger.error('Error during Redis disconnection', { error: getErrorMessage(error) });
     throw error;
   }
 }
 
-// Initialize Redis instances
+// Redis-backed helpers (they resolve the client lazily, so they are safe to import before
+// `connectRedis()` has run; calls made before then throw)
 export const cache = new CacheManager();
 export const sessions = new SessionManager();
 export const pubsub = new PubSubManager();
-
-// Cleanup on process termination
-process.on('SIGINT', async () => {
-  await disconnectRedis();
-});
-
-process.on('SIGTERM', async () => {
-  await disconnectRedis();
-});
 
 export default {
   connect: connectRedis,

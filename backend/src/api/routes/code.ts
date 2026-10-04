@@ -1,670 +1,218 @@
-import { Router, Request, Response, NextFunction } from 'express';
-import { body, param, query, validationResult } from 'express-validator';
-import rateLimit from 'express-rate-limit';
+import { Router } from 'express';
+import { z } from 'zod';
 
-import { auth } from '../middleware/auth';
-import { validateRequest } from '../middleware/validation';
-import { CodeExecutionService } from '../../services/compiler/execution-service';
-import { StaticAnalysisService } from '../../services/analyzer/analysis-service';
-import { CodeSnippetService } from '../../services/code-snippet-service';
-import { logger } from '../../utils/logger';
+import { analysisService } from '../../services/analyzer/analysis-service';
+import { codeSnippetService } from '../../services/code-snippet-service';
+import { MAX_SOURCE_BYTES } from '../../services/engine/engine-client';
 import { ApiError } from '../../utils/errors';
+import { handle, parse, requireUserId, stripUndefined } from '../http';
+import { auth, hasRoleAtLeast, optionalAuth } from '../middleware/auth';
+import { createIPRateLimit } from '../middleware/ratelimit';
 
+/**
+ * Code editor endpoints: snippet storage, engine-backed analysis and starter templates.
+ *
+ * Code *execution* is deliberately not available: it needs the sandbox described in
+ * docs/research/threat-model.md, which does not exist yet. `/execute` answers 501 so clients can
+ * show an accurate message instead of failing obscurely.
+ */
 const router = Router();
-const codeExecutionService = new CodeExecutionService();
-const staticAnalysisService = new StaticAnalysisService();
-const codeSnippetService = new CodeSnippetService();
 
-// Rate limiting for code execution to prevent abuse
-const executionRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 50, // Limit each IP to 50 requests per windowMs
-  message: {
-    error: 'Too many code execution requests, please try again later.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
+const source = z
+  .string()
+  .min(1)
+  .refine((s) => Buffer.byteLength(s, 'utf8') <= MAX_SOURCE_BYTES, {
+    message: `code must be at most ${MAX_SOURCE_BYTES} bytes`,
+  });
+const id = z.object({ id: z.string().min(1).max(64) });
+const listQuery = z.object({
+  search: z.string().max(100).optional(),
+  language: z.string().max(20).optional(),
+  tag: z.string().max(40).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+const snippetBody = z.object({
+  title: z.string().trim().min(1).max(200),
+  code: source,
+  language: z.enum(['cpp', 'c']).default('cpp'),
+  description: z.string().max(2000).optional(),
+  tags: z.array(z.string().trim().min(1).max(40)).max(10).optional(),
+  isPublic: z.boolean().optional(),
 });
 
-// Rate limiting for analysis requests
-const analysisRateLimit = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
-  message: {
-    error: 'Too many analysis requests, please try again later.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
+router.use(createIPRateLimit({ windowMs: 60_000, maxRequests: 120 }));
+
+router.post('/execute', (_req, res) => {
+  res.status(501).json({
+    success: false,
+    message:
+      'Code execution is not available: it requires an isolated sandbox that is not yet ' +
+      'implemented. Static analysis (POST /api/code/analyze) is available.',
+    code: 'EXECUTION_NOT_IMPLEMENTED',
+  });
 });
 
-/**
- * @swagger
- * /api/code/execute:
- *   post:
- *     summary: Execute C++ code
- *     tags: [Code]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/CodeExecution'
- *     responses:
- *       200:
- *         description: Code executed successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ExecutionResult'
- */
-router.post('/execute', [
-  executionRateLimit,
-  auth,
-  body('code')
-    .isString()
-    .isLength({ min: 1, max: 50000 })
-    .withMessage('Code must be between 1 and 50,000 characters'),
-  body('language')
-    .isIn(['cpp', 'c', 'cpp11', 'cpp14', 'cpp17', 'cpp20', 'cpp23'])
-    .withMessage('Language must be a supported C/C++ variant'),
-  body('input')
-    .optional()
-    .isString()
-    .isLength({ max: 10000 })
-    .withMessage('Input must be less than 10,000 characters'),
-  body('compilerFlags')
-    .optional()
-    .isArray()
-    .withMessage('Compiler flags must be an array'),
-  body('compilerFlags.*')
-    .isString()
-    .matches(/^-[a-zA-Z0-9=_-]+$/)
-    .withMessage('Invalid compiler flag format'),
-  body('timeout')
-    .optional()
-    .isInt({ min: 1, max: 30 })
-    .withMessage('Timeout must be between 1 and 30 seconds'),
-  validateRequest
-], async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user?.id;
-    const { code, language, input, compilerFlags, timeout } = req.body;
+router.post(
+  '/analyze',
+  handle(async (req, res) => {
+    const { code } = parse(z.object({ code: source }), req.body);
+    res.json({ success: true, data: await analysisService.analyze(code) });
+  })
+);
 
-    logger.info('Code execution request', { 
-      userId, 
-      language, 
-      codeLength: code.length,
-      hasInput: !!input,
-      flags: compilerFlags
-    });
-
-    const executionResult = await codeExecutionService.executeCode({
-      code,
-      language,
-      input: input || '',
-      compilerFlags: compilerFlags || [],
-      timeout: timeout || 10,
-      userId
-    });
-
-    // Track execution for analytics
-    await codeExecutionService.trackExecution(userId, {
-      language,
-      success: executionResult.success,
-      executionTime: executionResult.executionTime,
-      memoryUsed: executionResult.memoryUsed
-    });
-
-    res.json({
-      success: true,
-      data: executionResult
-    });
-  } catch (error) {
-    logger.error('Code execution failed', { error, userId: req.user?.id });
-    next(error);
-  }
-});
-
-/**
- * @swagger
- * /api/code/analyze:
- *   post:
- *     summary: Analyze C++ code for issues and improvements
- *     tags: [Code]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/CodeAnalysis'
- *     responses:
- *       200:
- *         description: Code analyzed successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/AnalysisResult'
- */
-router.post('/analyze', [
-  analysisRateLimit,
-  auth,
-  body('code')
-    .isString()
-    .isLength({ min: 1, max: 50000 })
-    .withMessage('Code must be between 1 and 50,000 characters'),
-  body('language')
-    .isIn(['cpp', 'c', 'cpp11', 'cpp14', 'cpp17', 'cpp20', 'cpp23'])
-    .withMessage('Language must be a supported C/C++ variant'),
-  body('analysisType')
-    .optional()
-    .isArray()
-    .withMessage('Analysis type must be an array'),
-  body('analysisType.*')
-    .isIn(['syntax', 'semantic', 'performance', 'security', 'style', 'complexity'])
-    .withMessage('Invalid analysis type'),
-  validateRequest
-], async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user?.id;
-    const { code, language, analysisType } = req.body;
-
-    logger.info('Code analysis request', { 
-      userId, 
-      language, 
-      codeLength: code.length,
-      analysisTypes: analysisType
-    });
-
-    const analysisResult = await staticAnalysisService.analyzeCode({
-      code,
-      language,
-      analysisTypes: analysisType || ['syntax', 'semantic', 'style'],
-      userId
-    });
-
-    // Track analysis for analytics
-    await staticAnalysisService.trackAnalysis(userId, {
-      language,
-      analysisTypes: analysisType,
-      issuesFound: analysisResult.issues.length,
-      suggestions: analysisResult.suggestions.length
-    });
-
-    res.json({
-      success: true,
-      data: analysisResult
-    });
-  } catch (error) {
-    logger.error('Code analysis failed', { error, userId: req.user?.id });
-    next(error);
-  }
-});
-
-/**
- * @swagger
- * /api/code/visualize:
- *   post:
- *     summary: Generate code visualization data
- *     tags: [Code]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               code:
- *                 type: string
- *               visualizationType:
- *                 type: string
- *                 enum: [ast, memory, execution_flow, call_graph]
- *     responses:
- *       200:
- *         description: Visualization data generated successfully
- */
-router.post('/visualize', [
-  auth,
-  body('code')
-    .isString()
-    .isLength({ min: 1, max: 50000 })
-    .withMessage('Code must be between 1 and 50,000 characters'),
-  body('visualizationType')
-    .isIn(['ast', 'memory', 'execution_flow', 'call_graph'])
-    .withMessage('Invalid visualization type'),
-  validateRequest
-], async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user?.id;
-    const { code, visualizationType } = req.body;
-
-    logger.info('Code visualization request', { 
-      userId, 
-      visualizationType,
-      codeLength: code.length
-    });
-
-    const visualizationData = await staticAnalysisService.generateVisualization({
-      code,
-      type: visualizationType,
-      userId
-    });
-
-    res.json({
-      success: true,
-      data: visualizationData
-    });
-  } catch (error) {
-    logger.error('Code visualization failed', { error, userId: req.user?.id });
-    next(error);
-  }
-});
-
-/**
- * @swagger
- * /api/code/snippets:
- *   get:
- *     summary: Get user's code snippets
- *     tags: [Code]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search term for snippets
- *       - in: query
- *         name: language
- *         schema:
- *           type: string
- *         description: Filter by programming language
- *       - in: query
- *         name: tags
- *         schema:
- *           type: string
- *         description: Comma-separated list of tags
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *       - in: query
- *         name: offset
- *         schema:
- *           type: integer
- *           default: 0
- *     responses:
- *       200:
- *         description: Code snippets retrieved successfully
- */
-router.get('/snippets', [
-  auth,
-  query('search').optional().isString().isLength({ max: 100 }),
-  query('language').optional().isString().isLength({ max: 20 }),
-  query('tags').optional().isString(),
-  query('limit').optional().isInt({ min: 1, max: 100 }),
-  query('offset').optional().isInt({ min: 0 }),
-  validateRequest
-], async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new ApiError(401, 'User not authenticated');
-    }
-
-    const { search, language, tags, limit = 20, offset = 0 } = req.query;
-
-    const snippets = await codeSnippetService.getUserSnippets(userId, {
-      search: search as string,
-      language: language as string,
-      tags: tags ? (tags as string).split(',') : undefined,
-      limit: parseInt(limit as string),
-      offset: parseInt(offset as string)
-    });
-
-    res.json({
-      success: true,
-      data: snippets
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * @swagger
- * /api/code/snippets:
- *   post:
- *     summary: Create a new code snippet
- *     tags: [Code]
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/CreateCodeSnippet'
- *     responses:
- *       201:
- *         description: Code snippet created successfully
- */
-router.post('/snippets', [
-  auth,
-  body('title')
-    .isString()
-    .isLength({ min: 1, max: 100 })
-    .withMessage('Title must be between 1 and 100 characters'),
-  body('description')
-    .optional()
-    .isString()
-    .isLength({ max: 500 })
-    .withMessage('Description must be less than 500 characters'),
-  body('code')
-    .isString()
-    .isLength({ min: 1, max: 50000 })
-    .withMessage('Code must be between 1 and 50,000 characters'),
-  body('language')
-    .isIn(['cpp', 'c', 'cpp11', 'cpp14', 'cpp17', 'cpp20', 'cpp23'])
-    .withMessage('Language must be a supported C/C++ variant'),
-  body('tags')
-    .optional()
-    .isArray()
-    .withMessage('Tags must be an array'),
-  body('tags.*')
-    .isString()
-    .isLength({ min: 1, max: 50 })
-    .withMessage('Each tag must be between 1 and 50 characters'),
-  body('isPublic')
-    .optional()
-    .isBoolean()
-    .withMessage('isPublic must be a boolean'),
-  validateRequest
-], async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new ApiError(401, 'User not authenticated');
-    }
-
-    const { title, description, code, language, tags, isPublic } = req.body;
-
-    const snippet = await codeSnippetService.createSnippet(userId, {
-      title,
-      description,
-      code,
-      language,
-      tags: tags || [],
-      isPublic: isPublic || false
-    });
-
-    logger.info('Code snippet created', { userId, snippetId: snippet.id, title });
-
-    res.status(201).json({
-      success: true,
-      data: snippet,
-      message: 'Code snippet created successfully'
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * @swagger
- * /api/code/snippets/{id}:
- *   get:
- *     summary: Get a specific code snippet
- *     tags: [Code]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Snippet ID
- *     responses:
- *       200:
- *         description: Code snippet retrieved successfully
- */
-router.get('/snippets/:id', [
-  auth,
-  param('id').isUUID().withMessage('Invalid snippet ID'),
-  validateRequest
-], async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user?.id;
-    const snippetId = req.params.id;
-
-    const snippet = await codeSnippetService.getSnippet(snippetId, userId);
-
-    res.json({
-      success: true,
-      data: snippet
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * @swagger
- * /api/code/snippets/{id}:
- *   put:
- *     summary: Update a code snippet
- *     tags: [Code]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Snippet ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/UpdateCodeSnippet'
- *     responses:
- *       200:
- *         description: Code snippet updated successfully
- */
-router.put('/snippets/:id', [
-  auth,
-  param('id').isUUID().withMessage('Invalid snippet ID'),
-  body('title')
-    .optional()
-    .isString()
-    .isLength({ min: 1, max: 100 })
-    .withMessage('Title must be between 1 and 100 characters'),
-  body('description')
-    .optional()
-    .isString()
-    .isLength({ max: 500 })
-    .withMessage('Description must be less than 500 characters'),
-  body('code')
-    .optional()
-    .isString()
-    .isLength({ min: 1, max: 50000 })
-    .withMessage('Code must be between 1 and 50,000 characters'),
-  body('tags')
-    .optional()
-    .isArray()
-    .withMessage('Tags must be an array'),
-  body('isPublic')
-    .optional()
-    .isBoolean()
-    .withMessage('isPublic must be a boolean'),
-  validateRequest
-], async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user?.id;
-    const snippetId = req.params.id;
-
-    if (!userId) {
-      throw new ApiError(401, 'User not authenticated');
-    }
-
-    const updatedSnippet = await codeSnippetService.updateSnippet(
-      snippetId,
-      userId,
+router.post(
+  '/visualize',
+  handle(async (req, res) => {
+    const body = parse(
+      z.object({ code: source, abi: z.enum(['lp64', 'llp64', 'ilp32']).default('lp64') }),
       req.body
     );
+    res.json({ success: true, data: await analysisService.layout(body.code, body.abi) });
+  })
+);
 
-    logger.info('Code snippet updated', { userId, snippetId, updates: Object.keys(req.body) });
+router.get(
+  '/snippets',
+  handle(async (req, res) => {
+    const query = parse(listQuery, req.query);
+    res.json({ success: true, data: await codeSnippetService.listPublic(stripUndefined(query)) });
+  })
+);
 
-    res.json({
-      success: true,
-      data: updatedSnippet,
-      message: 'Code snippet updated successfully'
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-/**
- * @swagger
- * /api/code/snippets/{id}:
- *   delete:
- *     summary: Delete a code snippet
- *     tags: [Code]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Snippet ID
- *     responses:
- *       200:
- *         description: Code snippet deleted successfully
- */
-router.delete('/snippets/:id', [
+router.get(
+  '/snippets/mine',
   auth,
-  param('id').isUUID().withMessage('Invalid snippet ID'),
-  validateRequest
-], async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user?.id;
-    const snippetId = req.params.id;
-
-    if (!userId) {
-      throw new ApiError(401, 'User not authenticated');
-    }
-
-    await codeSnippetService.deleteSnippet(snippetId, userId);
-
-    logger.info('Code snippet deleted', { userId, snippetId });
-
+  handle(async (req, res) => {
+    const query = parse(listQuery, req.query);
     res.json({
       success: true,
-      message: 'Code snippet deleted successfully'
+      data: await codeSnippetService.listMine(requireUserId(req), stripUndefined(query)),
     });
-  } catch (error) {
-    next(error);
-  }
-});
+  })
+);
 
-/**
- * @swagger
- * /api/code/templates:
- *   get:
- *     summary: Get code templates
- *     tags: [Code]
- *     parameters:
- *       - in: query
- *         name: category
- *         schema:
- *           type: string
- *         description: Template category
- *       - in: query
- *         name: difficulty
- *         schema:
- *           type: string
- *           enum: [beginner, intermediate, advanced]
- *         description: Template difficulty level
- *     responses:
- *       200:
- *         description: Code templates retrieved successfully
- */
-router.get('/templates', [
-  query('category').optional().isString().isLength({ max: 50 }),
-  query('difficulty').optional().isIn(['beginner', 'intermediate', 'advanced']),
-  validateRequest
-], async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const { category, difficulty } = req.query;
+router.get(
+  '/snippets/recent',
+  handle(async (_req, res) => {
+    const page = await codeSnippetService.listPublic({ limit: 10, offset: 0 });
+    res.json({ success: true, data: page.items });
+  })
+);
 
-    const templates = await codeSnippetService.getTemplates({
-      category: category as string,
-      difficulty: difficulty as string
-    });
+router.get(
+  '/snippets/popular',
+  handle(async (_req, res) => {
+    res.json({ success: true, data: await codeSnippetService.popular(10) });
+  })
+);
 
-    res.json({
-      success: true,
-      data: templates
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+router.get(
+  '/snippets/:id',
+  optionalAuth,
+  handle(async (req, res) => {
+    const { id: snippetId } = parse(id, req.params);
+    res.json({ success: true, data: await codeSnippetService.get(snippetId, req.user?.id) });
+  })
+);
 
-/**
- * @swagger
- * /api/code/share/{id}:
- *   post:
- *     summary: Generate shareable link for code snippet
- *     tags: [Code]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Snippet ID
- *     responses:
- *       200:
- *         description: Shareable link generated successfully
- */
-router.post('/share/:id', [
+router.post(
+  '/snippets',
   auth,
-  param('id').isUUID().withMessage('Invalid snippet ID'),
-  validateRequest
-], async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    const userId = req.user?.id;
-    const snippetId = req.params.id;
+  handle(async (req, res) => {
+    const body = parse(snippetBody, req.body);
+    const snippet = await codeSnippetService.create(requireUserId(req), stripUndefined(body));
+    res.status(201).json({ success: true, data: snippet });
+  })
+);
 
-    if (!userId) {
-      throw new ApiError(401, 'User not authenticated');
-    }
-
-    const shareLink = await codeSnippetService.generateShareLink(snippetId, userId);
-
+router.patch(
+  '/snippets/:id',
+  auth,
+  handle(async (req, res) => {
+    const { id: snippetId } = parse(id, req.params);
+    const body = parse(snippetBody.partial(), req.body);
+    if (Object.keys(body).length === 0) throw new ApiError(400, 'No fields to update');
     res.json({
       success: true,
-      data: { shareLink },
-      message: 'Shareable link generated successfully'
+      data: await codeSnippetService.update(snippetId, requireUserId(req), stripUndefined(body)),
     });
-  } catch (error) {
-    next(error);
-  }
+  })
+);
+
+router.delete(
+  '/snippets/:id',
+  auth,
+  handle(async (req, res) => {
+    const { id: snippetId } = parse(id, req.params);
+    const isAdmin = req.user !== undefined && hasRoleAtLeast(req.user, 'ADMIN');
+    await codeSnippetService.remove(snippetId, requireUserId(req), isAdmin);
+    res.status(204).end();
+  })
+);
+
+router.post(
+  '/snippets/:id/like',
+  auth,
+  handle(async (req, res) => {
+    const { id: snippetId } = parse(id, req.params);
+    res.json({ success: true, data: { likes: await codeSnippetService.like(snippetId, requireUserId(req)) } });
+  })
+);
+
+router.delete(
+  '/snippets/:id/like',
+  auth,
+  handle(async (req, res) => {
+    const { id: snippetId } = parse(id, req.params);
+    res.json({ success: true, data: { likes: await codeSnippetService.unlike(snippetId, requireUserId(req)) } });
+  })
+);
+
+/** Starter programs shown in the editor's "New from template" menu. */
+const TEMPLATES = [
+  {
+    id: 'hello-world',
+    title: 'Hello, world',
+    difficulty: 'beginner',
+    code: '#include <iostream>\n\nint main() {\n    std::cout << "Hello, world\\n";\n    return 0;\n}\n',
+  },
+  {
+    id: 'raii-file',
+    title: 'RAII file handle',
+    difficulty: 'intermediate',
+    code:
+      '#include <fstream>\n#include <string>\n\nint main() {\n    std::ofstream out("notes.txt");\n' +
+      '    out << "closed automatically\\n";\n    return 0;\n}  // out is flushed and closed here\n',
+  },
+  {
+    id: 'padding',
+    title: 'Struct padding',
+    difficulty: 'intermediate',
+    code:
+      'struct Padded {\n    char tag;\n    double value;\n    char flag;\n    int count;\n};\n\n' +
+      '// Try the memory-layout view: reordering saves 8 bytes on LP64.\n',
+  },
+  {
+    id: 'move-semantics',
+    title: 'Move semantics',
+    difficulty: 'advanced',
+    code:
+      '#include <string>\n#include <utility>\n#include <vector>\n\nint main() {\n' +
+      '    std::vector<std::string> names;\n    std::string name(1000, \'x\');\n' +
+      '    names.push_back(std::move(name));  // no copy of the buffer\n    return 0;\n}\n',
+  },
+] as const;
+
+router.get('/templates', (req, res) => {
+  const { difficulty } = parse(
+    z.object({ difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional() }),
+    req.query
+  );
+  res.json({
+    success: true,
+    data: difficulty ? TEMPLATES.filter((t) => t.difficulty === difficulty) : TEMPLATES,
+  });
 });
 
-export { router as codeRouter };
+export default router;

@@ -1,37 +1,54 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
-import config from '../../config';
+
+import { jwtConfig } from '../../config';
+import { prisma } from '../../config/database';
+import { toSafeUser, type SafeUser, type UserRole } from '../../types/user';
+import { getErrorMessage } from '../../utils/errors';
 import { logger } from '../../utils/logger';
 
-const prisma = new PrismaClient();
-
-interface JwtPayload {
+interface AccessTokenClaims {
   userId: string;
-  iat: number;
-  exp: number;
+  type?: string;
 }
 
-interface AuthenticatedRequest extends Request {
-  user: {
-    id: string;
-    email: string;
-    username: string;
-    name: string;
-    isActive: boolean;
-    profile?: any;
-  };
+/** A request that has passed `authMiddleware`. */
+export interface AuthenticatedRequest extends Request {
+  user: SafeUser;
 }
 
+const BEARER_PREFIX = 'Bearer ';
+const AUTH_REQUIRED_MESSAGE = 'Authentication required';
+
+function extractBearerToken(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith(BEARER_PREFIX)) {
+    return null;
+  }
+  const token = authHeader.substring(BEARER_PREFIX.length).trim();
+  return token.length > 0 ? token : null;
+}
+
+function isAccessTokenClaims(value: unknown): value is AccessTokenClaims {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { userId?: unknown }).userId === 'string'
+  );
+}
+
+/**
+ * Require a valid access token backed by an active session for an active user.
+ * On success `req.user` (without the password hash) and `req.sessionId` are populated.
+ */
 export const authMiddleware = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    // Get token from header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = extractBearerToken(req);
+    if (!token) {
       res.status(401).json({
         success: false,
         message: 'Access token is required',
@@ -39,12 +56,13 @@ export const authMiddleware = async (
       return;
     }
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-
     // Verify JWT token
-    let decoded: JwtPayload;
+    let decoded: unknown;
     try {
-      decoded = jwt.verify(token, config.jwt.secret) as JwtPayload;
+      decoded = jwt.verify(token, jwtConfig.secret, {
+        issuer: jwtConfig.issuer,
+        audience: jwtConfig.audience,
+      });
     } catch (error) {
       if (error instanceof jwt.TokenExpiredError) {
         res.status(401).json({
@@ -53,16 +71,25 @@ export const authMiddleware = async (
           code: 'TOKEN_EXPIRED',
         });
         return;
-      } else if (error instanceof jwt.JsonWebTokenError) {
+      }
+      if (error instanceof jwt.JsonWebTokenError) {
         res.status(401).json({
           success: false,
           message: 'Invalid access token',
           code: 'INVALID_TOKEN',
         });
         return;
-      } else {
-        throw error;
       }
+      throw error;
+    }
+
+    if (!isAccessTokenClaims(decoded) || (decoded.type && decoded.type !== 'access')) {
+      res.status(401).json({
+        success: false,
+        message: 'Invalid access token',
+        code: 'INVALID_TOKEN',
+      });
+      return;
     }
 
     // Check if session exists and is active
@@ -76,11 +103,7 @@ export const authMiddleware = async (
         },
       },
       include: {
-        user: {
-          include: {
-            profile: true,
-          },
-        },
+        user: true,
       },
     });
 
@@ -93,9 +116,8 @@ export const authMiddleware = async (
       return;
     }
 
-    // Check if user still exists and is active
-    if (!session.user || !session.user.isActive) {
-      // Invalidate session if user is inactive
+    // Check if user is still active
+    if (!session.user.isActive) {
       await prisma.userSession.update({
         where: { id: session.id },
         data: { isActive: false },
@@ -109,23 +131,13 @@ export const authMiddleware = async (
       return;
     }
 
-    // Check if user is banned
-    if (session.user.isBanned && (!session.user.banExpires || session.user.banExpires > new Date())) {
-      res.status(403).json({
-        success: false,
-        message: session.user.banReason || 'Account has been suspended',
-        code: 'USER_BANNED',
-      });
-      return;
-    }
-
-    // Attach user to request object
-    const { password: _, ...userWithoutPassword } = session.user;
-    (req as AuthenticatedRequest).user = userWithoutPassword;
+    req.user = toSafeUser(session.user);
+    req.userId = session.user.id;
+    req.sessionId = session.id;
 
     next();
   } catch (error) {
-    logger.error('Auth middleware error:', error);
+    logger.error('Auth middleware error', { error: getErrorMessage(error) });
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -133,47 +145,62 @@ export const authMiddleware = async (
   }
 };
 
-// Optional auth middleware - doesn't fail if no token provided
+/**
+ * Authenticate when a bearer token is present; requests without one continue anonymously.
+ * A token that is present but invalid is still rejected.
+ */
 export const optionalAuthMiddleware = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      // No token provided, continue without user
-      next();
-      return;
-    }
-
-    // Use regular auth middleware if token is provided
-    await authMiddleware(req, res, next);
-  } catch (error) {
-    // If auth fails, continue without user (don't block request)
+  if (!extractBearerToken(req)) {
     next();
+    return;
   }
+  await authMiddleware(req, res, next);
 };
 
-// Role-based access control middleware
-export const requireRole = (roles: string[]) => {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const user = (req as AuthenticatedRequest).user;
-    
+/** Express-compatible (non-promise-returning) wrappers for use in route definitions. */
+export const authenticateToken: RequestHandler = (req, res, next) => {
+  void authMiddleware(req, res, next);
+};
+export const auth = authenticateToken;
+export const optionalAuth: RequestHandler = (req, res, next) => {
+  void optionalAuthMiddleware(req, res, next);
+};
+
+const ROLE_RANK: Record<UserRole, number> = {
+  USER: 0,
+  MODERATOR: 1,
+  ADMIN: 2,
+  SUPER_ADMIN: 3,
+};
+
+function normalizeRole(role: string): UserRole | null {
+  const upper = role.toUpperCase();
+  return upper in ROLE_RANK ? (upper as UserRole) : null;
+}
+
+/**
+ * Role-based access control. Roles are matched case-insensitively against the
+ * `UserRole` enum; SUPER_ADMIN satisfies every role requirement.
+ */
+export const requireRole = (roles: string[]): RequestHandler => {
+  const allowed = new Set(roles.map(normalizeRole).filter((role): role is UserRole => role !== null));
+
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const user = req.user;
+
     if (!user) {
       res.status(401).json({
         success: false,
-        message: 'Authentication required',
+        message: AUTH_REQUIRED_MESSAGE,
       });
       return;
     }
 
-    // Check if user has required role
-    const userRoles = user.profile?.roles || [];
-    const hasRequiredRole = roles.some(role => userRoles.includes(role));
-    
-    if (!hasRequiredRole) {
+    if (!allowed.has(user.role) && user.role !== 'SUPER_ADMIN') {
       res.status(403).json({
         success: false,
         message: 'Insufficient permissions',
@@ -192,25 +219,28 @@ export const requireAdmin = requireRole(['admin']);
 // Moderator access middleware
 export const requireModerator = requireRole(['admin', 'moderator']);
 
+/** Whether the user's role is at least `role`. */
+export function hasRoleAtLeast(user: Pick<SafeUser, 'role'>, role: UserRole): boolean {
+  return ROLE_RANK[user.role] >= ROLE_RANK[role];
+}
+
 // Check if user owns resource or is admin
-export const requireOwnershipOrAdmin = (getResourceUserId: (req: Request) => string) => {
-  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    const user = (req as AuthenticatedRequest).user;
-    
+export const requireOwnershipOrAdmin = (
+  getResourceUserId: (req: Request) => string | undefined
+): RequestHandler => {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    const user = req.user;
+
     if (!user) {
       res.status(401).json({
         success: false,
-        message: 'Authentication required',
+        message: AUTH_REQUIRED_MESSAGE,
       });
       return;
     }
 
-    const resourceUserId = getResourceUserId(req);
-    const userRoles = user.profile?.roles || [];
-    const isAdmin = userRoles.includes('admin');
-    const isOwner = user.id === resourceUserId;
-
-    if (!isOwner && !isAdmin) {
+    const isOwner = user.id === getResourceUserId(req);
+    if (!isOwner && !hasRoleAtLeast(user, 'ADMIN')) {
       res.status(403).json({
         success: false,
         message: 'Access denied',
@@ -223,25 +253,23 @@ export const requireOwnershipOrAdmin = (getResourceUserId: (req: Request) => str
   };
 };
 
-// Rate limiting per user
-export const userRateLimit = (windowMs: number, maxRequests: number) => {
+// Rate limiting per user (in-process; use the Redis-backed limiter in ratelimit.ts for multi-instance)
+export const userRateLimit = (windowMs: number, maxRequests: number): RequestHandler => {
   const requests = new Map<string, { count: number; resetTime: number }>();
 
   return (req: Request, res: Response, next: NextFunction): void => {
-    const user = (req as AuthenticatedRequest).user;
-    
+    const user = req.user;
+
     if (!user) {
       next();
       return;
     }
 
     const now = Date.now();
-    const userId = user.id;
-    const userRequests = requests.get(userId);
+    const userRequests = requests.get(user.id);
 
     if (!userRequests || now > userRequests.resetTime) {
-      // Reset or initialize user's request count
-      requests.set(userId, {
+      requests.set(user.id, {
         count: 1,
         resetTime: now + windowMs,
       });
@@ -258,7 +286,6 @@ export const userRateLimit = (windowMs: number, maxRequests: number) => {
       return;
     }
 
-    // Increment request count
     userRequests.count += 1;
     next();
   };
@@ -266,17 +293,17 @@ export const userRateLimit = (windowMs: number, maxRequests: number) => {
 
 // Verify email middleware
 export const requireVerifiedEmail = (req: Request, res: Response, next: NextFunction): void => {
-  const user = (req as AuthenticatedRequest).user;
-  
+  const user = req.user;
+
   if (!user) {
     res.status(401).json({
       success: false,
-      message: 'Authentication required',
+      message: AUTH_REQUIRED_MESSAGE,
     });
     return;
   }
 
-  if (!user.emailVerified) {
+  if (!user.isVerified) {
     res.status(403).json({
       success: false,
       message: 'Email verification required',
@@ -287,37 +314,3 @@ export const requireVerifiedEmail = (req: Request, res: Response, next: NextFunc
 
   next();
 };
-
-// Check if user can perform action based on subscription/plan
-export const requireSubscription = (requiredPlan: string) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const user = (req as AuthenticatedRequest).user;
-    
-    if (!user) {
-      res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-      });
-      return;
-    }
-
-    const userPlan = user.profile?.subscriptionPlan || 'free';
-    const planHierarchy = ['free', 'pro', 'premium'];
-    
-    const userPlanLevel = planHierarchy.indexOf(userPlan);
-    const requiredPlanLevel = planHierarchy.indexOf(requiredPlan);
-
-    if (userPlanLevel < requiredPlanLevel) {
-      res.status(403).json({
-        success: false,
-        message: `${requiredPlan} subscription required`,
-        code: 'SUBSCRIPTION_REQUIRED',
-      });
-      return;
-    }
-
-    next();
-  };
-};
-
-export { AuthenticatedRequest };

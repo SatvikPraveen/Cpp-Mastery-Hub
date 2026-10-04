@@ -1,9 +1,11 @@
+import type { SafeUser } from './user';
+
 export interface ForumPost {
   id: string;
   title: string;
   content: string;
   authorId: string;
-  author?: Partial<User>;
+  author?: Partial<SafeUser>;
   category: PostCategory;
   tags: string[];
   isPinned: boolean;
@@ -30,7 +32,7 @@ export interface Comment {
   id: string;
   content: string;
   authorId: string;
-  author?: Partial<User>;
+  author?: Partial<SafeUser>;
   postId: string;
   parentId?: string;
   replies?: Comment[];
