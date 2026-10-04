@@ -216,8 +216,8 @@ logs
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
+CTestTestfile.cmake
 Makefile
-*.cmake
 !CMakeLists.txt
 
 # Build directories
@@ -244,8 +244,7 @@ compile_commands.json
 # Docker & Containerization
 # =====================================
 
-# Docker
-.dockerignore
+# Docker (.dockerignore files are source and must be committed)
 docker-compose.override.yml
 
 # =====================================
@@ -323,9 +322,9 @@ secrets/
 logs/
 log/
 
-# Monitoring data
-metrics/
-prometheus/
+# Monitoring data (repository root only; src/**/metrics is source code)
+/metrics/
+/prometheus/
 
 # =====================================
 # Cache & Temporary Files
@@ -358,9 +357,9 @@ user-content/
 output/
 generated/
 
-# Analysis reports
-reports/
-analysis/
+# Analysis reports (repository root only; src/**/analysis is source code)
+/reports/
+/analysis/
 
 # Performance benchmarks
 benchmarks/results/
