@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '../UI/Button';
+
 import { Badge } from '../UI/Badge';
+import { Button } from '../UI/Button';
 import { Loading } from '../UI/Loading';
 
 interface UserStats {
@@ -31,7 +32,7 @@ interface UserActivity {
   title: string;
   description: string;
   timestamp: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 interface UserProfileData {
@@ -77,7 +78,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
   const [activeTab, setActiveTab] = useState<'overview' | 'activity' | 'achievements' | 'stats'>('overview');
 
   useEffect(() => {
-    const fetchUserProfile = async () => {
+    const fetchUserProfile = () => {
       setLoading(true);
       try {
         // Mock API call - replace with actual implementation
@@ -354,7 +355,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as typeof activeTab)}
                 className={`
                   py-4 px-1 border-b-2 font-medium text-sm transition-colors
                   ${activeTab === tab.id
@@ -500,3 +501,5 @@ export const UserProfile: React.FC<UserProfileProps> = ({
     </div>
   );
 };
+
+export default UserProfile;

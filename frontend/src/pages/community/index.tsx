@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { Search, Filter, TrendingUp, MessageSquare, Users, Award, Plus, Clock, Star, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Layout from '../../components/Layout/Layout';
-import PostCard from '../../components/Community/PostCard';
-import UserProfile from '../../components/Community/UserProfile';
+import { Search, TrendingUp, MessageSquare, Users, Award, Plus, Clock, Star } from 'lucide-react';
+import { useRouter } from 'next/router';
+import React, { useState, useEffect } from 'react';
+
+import UserAvatar from '../../components/Common/UserAvatar';
 import Leaderboard from '../../components/Community/Leaderboard';
+import PostCard from '../../components/Community/PostCard';
+import Layout from '../../components/Layout/Layout';
 import { useAuth } from '../../hooks/useAuth';
 import { communityService } from '../../services/api';
-import { ForumPost, CommunityUser, LeaderboardEntry } from '../../types';
+import type { ForumPost, LeaderboardEntry } from '../../types';
 
-interface CommunityHubProps {}
+type CommunityHubProps = Record<string, never>;
 
 const CommunityHub: React.FC<CommunityHubProps> = () => {
   const router = useRouter();
@@ -48,51 +49,51 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
   ];
 
   useEffect(() => {
-    fetchCommunityData();
+    const fetchCommunityData = async () => {
+      try {
+        setLoading(true);
+        const [postsResponse, trendingResponse, leaderboardResponse] = await Promise.all([
+          communityService.getPosts({ category: selectedCategory, sort: sortBy }),
+          communityService.getTrendingPosts(),
+          communityService.getLeaderboard(),
+        ]);
+
+        setPosts(postsResponse.data as ForumPost[]);
+        setTrendingPosts(trendingResponse.data as ForumPost[]);
+        setTopUsers(leaderboardResponse.data as LeaderboardEntry[]);
+      } catch (error) {
+        console.error('Error fetching community data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchCommunityData();
   }, [selectedCategory, sortBy]);
 
-  useEffect(() => {
-    filterPosts();
-  }, [searchQuery]);
-
-  const fetchCommunityData = async () => {
-    try {
-      setLoading(true);
-      const [postsResponse, trendingResponse, leaderboardResponse] = await Promise.all([
-        communityService.getPosts({ category: selectedCategory, sort: sortBy }),
-        communityService.getTrendingPosts(),
-        communityService.getLeaderboard()
-      ]);
-
-      setPosts(postsResponse.data);
-      setTrendingPosts(trendingResponse.data);
-      setTopUsers(leaderboardResponse.data);
-    } catch (error) {
-      console.error('Error fetching community data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterPosts = () => {
-    // This would filter posts based on search query
-    // For now, we'll just use the existing posts
-  };
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const visiblePosts = normalizedQuery
+    ? posts.filter(
+        (post) =>
+          post.title.toLowerCase().includes(normalizedQuery) ||
+          post.content.toLowerCase().includes(normalizedQuery)
+      )
+    : posts;
 
   const handleCreatePost = () => {
     if (!isAuthenticated) {
-      router.push('/auth/login');
+      void router.push('/auth/login');
       return;
     }
-    router.push('/community/create');
+    void router.push('/community/create');
   };
 
   const handlePostClick = (postId: string) => {
-    router.push(`/community/${postId}`);
+    void router.push(`/community/${postId}`);
   };
 
   const handleUserClick = (userId: string) => {
-    router.push(`/community/users/${userId}`);
+    void router.push(`/community/users/${userId}`);
   };
 
   const containerVariants = {
@@ -119,7 +120,7 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
         </div>
       </Layout>
     );
@@ -292,7 +293,7 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
             {activeTab === 'feed' && (
               <motion.div variants={itemVariants}>
                 <div className="space-y-6">
-                  {posts.map((post, index) => (
+                  {visiblePosts.map((post, index) => (
                     <motion.div
                       key={post.id}
                       variants={itemVariants}
@@ -301,12 +302,12 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
                       <PostCard
                         post={post}
                         onClick={() => handlePostClick(post.id)}
-                        onUserClick={() => handleUserClick(post.author.id)}
+                        onUserClick={() => handleUserClick(post.author?.id ?? post.userId)}
                       />
                     </motion.div>
                   ))}
                   
-                  {posts.length === 0 && (
+                  {visiblePosts.length === 0 && (
                     <div className="text-center py-12">
                       <MessageSquare className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                       <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-2">
@@ -339,8 +340,8 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
                       <PostCard
                         post={post}
                         onClick={() => handlePostClick(post.id)}
-                        onUserClick={() => handleUserClick(post.author.id)}
-                        showTrendingBadge={true}
+                        onUserClick={() => handleUserClick(post.author?.id ?? post.userId)}
+                        showTrendingBadge
                       />
                     </motion.div>
                   ))}
@@ -350,10 +351,7 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
 
             {activeTab === 'leaderboard' && (
               <motion.div variants={itemVariants}>
-                <Leaderboard
-                  entries={topUsers}
-                  onUserClick={handleUserClick}
-                />
+                <Leaderboard period="weekly" limit={20} />
               </motion.div>
             )}
           </div>
@@ -366,11 +364,23 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
                 variants={itemVariants}
                 className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6"
               >
-                <UserProfile
-                  user={user}
-                  showStats={true}
-                  onClick={() => router.push('/profile')}
-                />
+                {user && (
+                  <button
+                    type="button"
+                    onClick={() => void router.push('/profile')}
+                    className="flex items-center space-x-3 w-full text-left"
+                  >
+                    <UserAvatar user={user} size="md" />
+                    <div className="min-w-0">
+                      <p className="font-semibold text-gray-900 dark:text-white truncate">
+                        {user.name}
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                        @{user.username} · {user.profile?.totalPoints ?? 0} points
+                      </p>
+                    </div>
+                  </button>
+                )}
               </motion.div>
             )}
 
@@ -389,14 +399,14 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
                 </button>
                 
                 <button
-                  onClick={() => router.push('/community/forums')}
+                  onClick={() => void router.push('/community/forums')}
                   className="w-full text-left px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   Browse Forums
                 </button>
                 
                 <button
-                  onClick={() => router.push('/community/guidelines')}
+                  onClick={() => void router.push('/community/guidelines')}
                   className="w-full text-left px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   Community Guidelines
@@ -415,24 +425,13 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
               </h3>
               <div className="space-y-3">
                 {topUsers.slice(0, 5).map((entry, index) => (
-                  <div
+                  <button
+                    type="button"
                     key={entry.user.id}
-                    className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded"
+                    className="flex items-center space-x-3 w-full text-left hover:bg-gray-50 dark:hover:bg-gray-700 p-2 rounded"
                     onClick={() => handleUserClick(entry.user.id)}
                   >
-                    <div className="flex-shrink-0">
-                      {entry.user.avatar ? (
-                        <img
-                          src={entry.user.avatar}
-                          alt={entry.user.username}
-                          className="w-8 h-8 rounded-full"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                          {entry.user.username.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
+                    <UserAvatar user={entry.user} size="sm" className="h-8 w-8" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                         {entry.user.username}
@@ -444,7 +443,7 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       #{index + 1}
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </motion.div>
@@ -460,17 +459,17 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
               </h3>
               <div className="space-y-3 text-sm">
                 <div className="flex items-start space-x-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0" />
                   <div>
                     <p className="text-gray-900 dark:text-white">
-                      New tutorial: "Modern C++ Best Practices"
+                      New tutorial: &ldquo;Modern C++ Best Practices&rdquo;
                     </p>
                     <p className="text-gray-600 dark:text-gray-400 text-xs">2 hours ago</p>
                   </div>
                 </div>
                 
                 <div className="flex items-start space-x-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0" />
                   <div>
                     <p className="text-gray-900 dark:text-white">
                       Weekly coding challenge posted
@@ -480,7 +479,7 @@ const CommunityHub: React.FC<CommunityHubProps> = () => {
                 </div>
                 
                 <div className="flex items-start space-x-2">
-                  <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                  <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0" />
                   <div>
                     <p className="text-gray-900 dark:text-white">
                       Community meetup announced

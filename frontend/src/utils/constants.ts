@@ -7,14 +7,14 @@ export const APP_CONFIG = {
   
   // API Configuration
   api: {
-    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+    baseUrl: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000',
     timeout: 30000,
     retries: 3
   },
 
   // WebSocket Configuration
   websocket: {
-    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000',
+    url: process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:8000',
     reconnectAttempts: 5,
     reconnectInterval: 3000
   },

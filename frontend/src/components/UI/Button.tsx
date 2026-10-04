@@ -1,13 +1,14 @@
-import React, { forwardRef, ButtonHTMLAttributes } from 'react';
-import { cn } from '@/utils/cn';
 import { Loader2 } from 'lucide-react';
+import React, { forwardRef, ButtonHTMLAttributes } from 'react';
+
+import { cn } from '@/utils/cn';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'default' | 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
-  size?: 'sm' | 'md' | 'lg';
-  loading?: boolean;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
+  variant?: 'default' | 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive' | undefined;
+  size?: 'sm' | 'md' | 'lg' | undefined;
+  loading?: boolean | undefined;
+  leftIcon?: React.ReactNode | undefined;
+  rightIcon?: React.ReactNode | undefined;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
@@ -47,7 +48,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
         className
       )}
       ref={ref}
-      disabled={disabled || loading}
+      disabled={Boolean(disabled) || loading}
       {...props}
     >
       {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -61,4 +62,5 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
 Button.displayName = 'Button';
 
 export { Button };
+export default Button;
 export type { ButtonProps };

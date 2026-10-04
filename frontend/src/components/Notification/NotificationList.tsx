@@ -1,21 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { Notification, NotificationData } from './Notification';
-import { Loading } from '../UI/Loading';
+import React, { useState } from 'react';
+
 import { Badge } from '../UI/Badge';
+import { Loading } from '../UI/Loading';
+
+import { Notification, NotificationData } from './Notification';
 
 interface NotificationListProps {
-  notifications?: NotificationData[];
-  loading?: boolean;
+  notifications?: NotificationData[] | undefined;
+  loading?: boolean | undefined;
   onRead: (id: string) => void;
   onUnread: (id: string) => void;
   onDelete: (id: string) => void;
-  onAction?: (notification: NotificationData) => void;
-  onMarkAllRead?: () => void;
-  onClearAll?: () => void;
-  onLoadMore?: () => void;
-  hasMore?: boolean;
-  compact?: boolean;
-  maxHeight?: string;
+  onAction?: (notification: NotificationData) => void | undefined;
+  onMarkAllRead?: () => void | undefined;
+  onClearAll?: () => void | undefined;
+  onLoadMore?: () => void | undefined;
+  hasMore?: boolean | undefined;
+  compact?: boolean | undefined;
+  maxHeight?: string | undefined;
 }
 
 export const NotificationList: React.FC<NotificationListProps> = ({
@@ -62,11 +64,17 @@ export const NotificationList: React.FC<NotificationListProps> = ({
   if (notifications.length === 0) {
     return (
       <div className="text-center py-8">
-        <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5z" />
+        <svg
+          className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M15 17h5l-5 5v-5z"
+          />
         </svg>
         <h3 className="text-lg font-medium text-gray-900 mb-2">No notifications</h3>
-        <p className="text-gray-600">You're all caught up! No new notifications.</p>
+        <p className="text-gray-600">You&apos;re all caught up! No new notifications.</p>
       </div>
     );
   }
@@ -202,7 +210,6 @@ export const NotificationDropdown: React.FC<{
 }> = ({
   notifications,
   onRead,
-  onUnread,
   onDelete,
   onViewAll,
   onMarkAllRead
@@ -238,8 +245,14 @@ export const NotificationDropdown: React.FC<{
       <div className="max-h-96 overflow-y-auto">
         {recentNotifications.length === 0 ? (
           <div className="p-6 text-center text-gray-500">
-            <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5z" />
+            <svg
+              className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M15 17h5l-5 5v-5z"
+              />
             </svg>
             <p>No notifications</p>
           </div>
@@ -263,7 +276,7 @@ export const NotificationDropdown: React.FC<{
               >
                 <div className="flex items-start space-x-3">
                   {!notification.read && (
-                    <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
+                    <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">
@@ -283,8 +296,14 @@ export const NotificationDropdown: React.FC<{
                     }}
                     className="flex-shrink-0 text-gray-400 hover:text-red-600 transition-colors p-1"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    <svg
+                      className="w-4 h-4" fill="none" stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
                     </svg>
                   </button>
                 </div>

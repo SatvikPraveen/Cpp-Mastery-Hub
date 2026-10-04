@@ -1,6 +1,5 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Monitor,
@@ -14,11 +13,12 @@ import {
   Pause,
   SkipBack,
   SkipForward,
-  RefreshCw,
   Maximize2,
   X,
 } from 'lucide-react';
-import { MemoryState, StackFrame, HeapObject, Variable, ExecutionResult } from '@/types';
+import React, { useState, useEffect, useRef } from 'react';
+
+import { MemoryState, Variable, ExecutionResult } from '@/types';
 
 interface MemoryVisualizerProps {
   code: string;
@@ -126,7 +126,7 @@ const MemoryVisualizer: React.FC<MemoryVisualizerProps> = ({
             functionName: 'main',
             line: 5,
             variables: [
-              ...states[0].stackFrames[0].variables,
+              ...(states[0]?.stackFrames[0]?.variables ?? []),
               {
                 name: 'ptr',
                 type: 'int*',

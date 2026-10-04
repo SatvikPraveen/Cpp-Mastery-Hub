@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { formatDistanceToNow } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity,
@@ -15,9 +15,9 @@ import {
   ChevronUp,
   Filter,
 } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import React, { useState } from 'react';
 
-interface ActivityItem {
+export interface ActivityItem {
   id: string;
   type: 'lesson_completed' | 'exercise_completed' | 'achievement_unlocked' | 'code_shared' | 'comment_posted' | 'code_liked';
   title: string;
@@ -37,8 +37,8 @@ interface ActivityItem {
 
 interface ActivityFeedProps {
   activities: ActivityItem[];
-  showFilters?: boolean;
-  maxItems?: number;
+  showFilters?: boolean | undefined;
+  maxItems?: number | undefined;
 }
 
 const ActivityFeed: React.FC<ActivityFeedProps> = ({

@@ -16,6 +16,12 @@ export interface User {
   lastLoginAt?: string;
   profile?: UserProfile;
   progress?: number; // Overall progress percentage
+  // Optional display / authorization metadata used by layouts and auth helpers
+  firstName?: string;
+  lastName?: string;
+  avatarUrl?: string;
+  role?: UserRole;
+  isEmailVerified?: boolean;
 }
 
 export interface UserProfile {
@@ -57,7 +63,26 @@ export interface RegisterData {
   acceptTerms: boolean;
 }
 
+export type UserRole = 'USER' | 'INSTRUCTOR' | 'MODERATOR' | 'ADMIN';
+
 // Learning Content Types
+export interface CourseInstructor {
+  id?: string;
+  name: string;
+  title?: string;
+  bio?: string;
+  avatar?: string;
+}
+
+export interface ExerciseExample {
+  input: string;
+  output: string;
+  explanation?: string;
+}
+
+export type CourseLevel = 'beginner' | 'intermediate' | 'advanced';
+export type CourseCategory = 'basics' | 'oop' | 'algorithms' | 'advanced' | 'projects';
+
 export interface Course {
   id: string;
   title: string;
@@ -76,9 +101,23 @@ export interface Course {
   lessons: Lesson[];
   progress?: LearningProgress;
   completionRate?: number;
+  // Catalog metadata (optional, supplied by the course listing endpoint)
+  level?: CourseLevel;
+  category?: CourseCategory;
+  duration?: number; // hours
+  lessonsCount?: number;
+  rating?: number;
+  studentsCount?: number;
+  tags?: string[];
+  isPremium?: boolean;
+  instructor?: CourseInstructor;
+  estimatedHours?: number;
+  enrollmentCount?: number;
+  learningObjectives?: string[];
 }
 
 export interface Lesson {
+  hasQuiz?: boolean;
   id: string;
   courseId: string;
   title: string;
@@ -96,6 +135,8 @@ export interface Lesson {
   updatedAt: string;
   exercises: Exercise[];
   progress?: LessonProgress;
+  estimatedMinutes?: number;
+  objectives?: string[];
 }
 
 export interface Exercise {
@@ -115,6 +156,10 @@ export interface Exercise {
   allowedIncludes: string[];
   createdAt: string;
   updatedAt: string;
+  hints?: string[];
+  estimatedTime?: number; // minutes
+  examples?: ExerciseExample[];
+  constraints?: string[];
 }
 
 export interface TestCase {
@@ -124,6 +169,10 @@ export interface TestCase {
   isHidden: boolean;
   points: number;
   description?: string;
+  // Populated after a submission has been evaluated
+  passed?: boolean;
+  expected?: string;
+  actual?: string;
 }
 
 export interface LearningProgress {
@@ -163,6 +212,9 @@ export interface CodeSnippet {
   executionCount: number;
   createdAt: string;
   updatedAt: string;
+  author?: Pick<User, 'id' | 'username' | 'name' | 'avatar'>;
+  likes?: number;
+  category?: string;
 }
 
 export interface CodeSubmission {
@@ -255,7 +307,7 @@ export interface HeapObject {
   address: string;
   type: string;
   size: number;
-  value: any;
+  value: unknown;
   references: string[];
   isAllocated: boolean;
 }
@@ -263,7 +315,7 @@ export interface HeapObject {
 export interface Variable {
   name: string;
   type: string;
-  value: any;
+  value: unknown;
   address?: string;
   size: number;
   scope: 'local' | 'global' | 'parameter';
@@ -287,6 +339,11 @@ export interface ForumCategory {
   order: number;
   isActive: boolean;
   postCount?: number;
+  isLocked?: boolean;
+  postsCount?: number;
+  membersCount?: number;
+  latestPost?: Pick<ForumPost, 'id' | 'title' | 'createdAt'> & { author?: string };
+  recentActivity?: string;
 }
 
 export interface ForumPost {
@@ -308,6 +365,13 @@ export interface ForumPost {
   updatedAt: string;
   comments: ForumComment[];
   commentCount?: number;
+  author?: Pick<User, 'id' | 'username' | 'name' | 'avatar'> & { reputation?: number };
+  upvotes?: number;
+  downvotes?: number;
+  repliesCount?: number;
+  viewsCount?: number;
+  isSolved?: boolean;
+  lastReply?: { author: string; createdAt: string };
 }
 
 export interface ForumComment {
@@ -368,10 +432,11 @@ export interface Achievement {
   icon: string;
   category: AchievementCategory;
   points: number;
-  condition: any; // Achievement unlock conditions
+  condition: unknown; // Achievement unlock conditions
   isActive: boolean;
   unlockedAt?: string;
   progress?: number;
+  title?: string;
 }
 
 export interface UserAchievement {
@@ -390,14 +455,14 @@ export interface Notification {
   type: NotificationType;
   title: string;
   message: string;
-  data?: any;
+  data?: unknown;
   isRead: boolean;
   readAt?: string;
   createdAt: string;
 }
 
 // API Response Types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   message?: string;
@@ -411,7 +476,7 @@ export interface ApiResponse<T = any> {
   };
 }
 
-export interface PaginatedResponse<T = any> {
+export interface PaginatedResponse<T = unknown> {
   items: T[];
   total: number;
   page: number;
@@ -545,7 +610,7 @@ export interface Theme {
 // WebSocket Event Types
 export interface SocketEvent {
   type: string;
-  data: any;
+  data: unknown;
   timestamp: number;
 }
 
@@ -579,4 +644,110 @@ export interface LearningProgressEvent extends SocketEvent {
     progress: number;
     action: 'started' | 'completed' | 'updated';
   };
+}
+// --- Learning types ---
+export interface CourseProgressSummary {
+  title: string;
+  progress: number; // percentage
+}
+
+export interface UserProgress {
+  courseId?: string;
+  overallProgress?: number; // percentage
+  progressPercentage?: number; // percentage for a single course
+  courseProgress?: Record<string, CourseProgressSummary>;
+  completedLessons?: string[];
+  totalLessons?: number;
+  nextLessonId?: string;
+  previousLessonId?: string;
+}
+
+export interface LearningStats {
+  completedLessons: number;
+  completedExercises: number;
+  totalStudyTime: number; // minutes
+  currentStreak: number;
+  longestStreak: number;
+  weeklyStudyTime: number; // minutes
+  weeklyGoal: number; // hours
+}
+
+export interface SubmissionResult {
+  passed: boolean;
+  testResults: TestCase[];
+  score?: number;
+  message?: string;
+}
+
+export interface Prerequisite {
+  id: string;
+  courseId: string;
+  title: string;
+  description?: string;
+  isCompleted?: boolean;
+}
+
+export interface LessonCodeExample {
+  title: string;
+  code: string;
+  explanation?: string;
+}
+
+export interface LessonContent {
+  content: string;
+  videoUrl?: string;
+  codeTemplate?: string;
+  codeInstructions?: string;
+  codeInput?: string;
+  expectedOutput?: string;
+  codeExamples?: LessonCodeExample[];
+}
+
+export interface QuizQuestionItem {
+  id: string;
+  question: string;
+  options: string[];
+  correctAnswer: number; // index into options
+  explanation?: string;
+}
+
+export interface Quiz {
+  id: string;
+  title?: string;
+  questions: QuizQuestionItem[];
+  passingScore?: number; // percentage
+}
+
+// --- Code / collaboration types ---
+export interface CollaborationUser {
+  id: string;
+  username: string;
+  avatar?: string;
+  color?: string;
+  hasVideo?: boolean;
+}
+
+export interface CollaborationSession {
+  id: string;
+  title: string;
+  code: string;
+  language: string;
+  hostId: string;
+  isPublic: boolean;
+  users: CollaborationUser[];
+}
+
+export interface ChatMessage {
+  id: string;
+  user: Pick<CollaborationUser, 'id' | 'username' | 'avatar'>;
+  content: string;
+  timestamp: number;
+  type: 'user' | 'system';
+}
+
+// --- Community types ---
+export interface LeaderboardEntry {
+  user: Pick<User, 'id' | 'username' | 'avatar'>;
+  points: number;
+  rank?: number;
 }

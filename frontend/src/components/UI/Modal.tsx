@@ -1,20 +1,22 @@
+import { X } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+
 import { cn } from '@/utils/cn';
-import { X } from 'lucide-react';
+
 import { Button } from './Button';
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title?: string;
+  title?: string | undefined;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
-  showCloseButton?: boolean;
-  closeOnOverlayClick?: boolean;
-  closeOnEscape?: boolean;
-  footer?: React.ReactNode;
-  className?: string;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full' | undefined;
+  showCloseButton?: boolean | undefined;
+  closeOnOverlayClick?: boolean | undefined;
+  closeOnEscape?: boolean | undefined;
+  footer?: React.ReactNode | undefined;
+  className?: string | undefined;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -99,7 +101,7 @@ const Modal: React.FC<ModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        {(title || showCloseButton) && (
+        {(title ?? showCloseButton) && (
           <div className="flex items-center justify-between p-6 border-b">
             {title && (
               <h2 className="text-lg font-semibold text-foreground">
@@ -141,7 +143,7 @@ const Modal: React.FC<ModalProps> = ({
 // Modal compound components
 interface ModalHeaderProps {
   children: React.ReactNode;
-  className?: string;
+  className?: string | undefined;
 }
 
 const ModalHeader: React.FC<ModalHeaderProps> = ({ children, className }) => (
@@ -152,7 +154,7 @@ const ModalHeader: React.FC<ModalHeaderProps> = ({ children, className }) => (
 
 interface ModalTitleProps {
   children: React.ReactNode;
-  className?: string;
+  className?: string | undefined;
 }
 
 const ModalTitle: React.FC<ModalTitleProps> = ({ children, className }) => (
@@ -163,7 +165,7 @@ const ModalTitle: React.FC<ModalTitleProps> = ({ children, className }) => (
 
 interface ModalDescriptionProps {
   children: React.ReactNode;
-  className?: string;
+  className?: string | undefined;
 }
 
 const ModalDescription: React.FC<ModalDescriptionProps> = ({ children, className }) => (
@@ -174,7 +176,7 @@ const ModalDescription: React.FC<ModalDescriptionProps> = ({ children, className
 
 interface ModalFooterProps {
   children: React.ReactNode;
-  className?: string;
+  className?: string | undefined;
 }
 
 const ModalFooter: React.FC<ModalFooterProps> = ({ children, className }) => (

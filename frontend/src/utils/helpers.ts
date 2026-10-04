@@ -18,7 +18,7 @@ export function formatFileSize(bytes: number): string {
   const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 }
 
 /**
@@ -36,7 +36,7 @@ export function generateRandomString(length: number): string {
 /**
  * Check if a value is empty (null, undefined, empty string, empty array, empty object)
  */
-export function isEmpty(value: any): boolean {
+export function isEmpty(value: unknown): boolean {
   if (value == null) return true;
   if (typeof value === 'string') return value.trim() === '';
   if (Array.isArray(value)) return value.length === 0;
@@ -49,7 +49,7 @@ export function isEmpty(value: any): boolean {
  */
 export function truncateText(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength - 3) + '...';
+  return `${text.slice(0, maxLength - 3)}...`;
 }
 
 /**
@@ -70,7 +70,7 @@ export function camelToKebab(text: string): string {
  * Convert kebab-case to camelCase
  */
 export function kebabToCamel(text: string): string {
-  return text.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+  return text.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
 }
 
 /**
@@ -78,10 +78,10 @@ export function kebabToCamel(text: string): string {
  */
 export function deepClone<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') return obj;
-  if (obj instanceof Date) return new Date(obj.getTime()) as any;
-  if (obj instanceof Array) return obj.map(item => deepClone(item)) as any;
-  
-  const cloned: any = {};
+  if (obj instanceof Date) return new Date(obj.getTime()) as T;
+  if (Array.isArray(obj)) return obj.map((item: unknown) => deepClone(item)) as T;
+
+  const cloned = {} as T;
   for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
       cloned[key] = deepClone(obj[key]);
@@ -93,7 +93,7 @@ export function deepClone<T>(obj: T): T {
 /**
  * Check if two objects are deeply equal
  */
-export function deepEqual(a: any, b: any): boolean {
+export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true;
   if (a == null || b == null) return false;
   if (typeof a !== typeof b) return false;
@@ -101,14 +101,16 @@ export function deepEqual(a: any, b: any): boolean {
   if (typeof a === 'object') {
     if (Array.isArray(a) !== Array.isArray(b)) return false;
     
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
+    const recA = a as Record<string, unknown>;
+    const recB = b as Record<string, unknown>;
+    const keysA = Object.keys(recA);
+    const keysB = Object.keys(recB);
     
     if (keysA.length !== keysB.length) return false;
     
     for (const key of keysA) {
       if (!keysB.includes(key)) return false;
-      if (!deepEqual(a[key], b[key])) return false;
+      if (!deepEqual(recA[key], recB[key])) return false;
     }
     
     return true;
@@ -122,16 +124,16 @@ export function deepEqual(a: any, b: any): boolean {
  */
 export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
-  maxRetries: number = 3,
-  initialDelay: number = 1000
+  maxRetries = 3,
+  initialDelay = 1000
 ): Promise<T> {
-  let lastError: Error;
-  
+  let lastError: unknown = new Error('retryWithBackoff: no attempts made');
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error) {
-      lastError = error as Error;
+      lastError = error;
       
       if (attempt === maxRetries - 1) {
         throw lastError;
@@ -142,13 +144,13 @@ export async function retryWithBackoff<T>(
     }
   }
   
-  throw lastError!;
+  throw lastError;
 }
 
 /**
  * Create a throttled function that only executes at most once per interval
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: never[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -165,12 +167,12 @@ export function throttle<T extends (...args: any[]) => any>(
         timeout = null;
       }
       previous = now;
-      func.apply(null, args);
+      func(...args);
     } else if (!timeout) {
       timeout = setTimeout(() => {
         previous = Date.now();
         timeout = null;
-        func.apply(null, args);
+        func(...args);
       }, remaining);
     }
   };
@@ -183,7 +185,7 @@ export function getCookie(name: string): string | null {
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
   if (parts.length === 2) {
-    return parts.pop()?.split(';').shift() || null;
+    return parts.pop()?.split(';').shift() ?? null;
   }
   return null;
 }
@@ -235,7 +237,7 @@ export function setCookie(
 /**
  * Remove cookie
  */
-export function removeCookie(name: string, path: string = '/'): void {
+export function removeCookie(name: string, path = '/'): void {
   setCookie(name, '', { expires: new Date(0), path });
 }
 
@@ -257,7 +259,7 @@ export function isMobile(): boolean {
 /**
  * Scroll to element smoothly
  */
-export function scrollToElement(elementId: string, offset: number = 0): void {
+export function scrollToElement(elementId: string, offset = 0): void {
   const element = document.getElementById(elementId);
   if (element) {
     const y = element.getBoundingClientRect().top + window.pageYOffset - offset;
@@ -325,7 +327,7 @@ export function parseQueryString(queryString: string): Record<string, string> {
 /**
  * Convert object to query string
  */
-export function objectToQueryString(obj: Record<string, any>): string {
+export function objectToQueryString(obj: Record<string, unknown>): string {
   const params = new URLSearchParams();
   
   for (const [key, value] of Object.entries(obj)) {
@@ -360,7 +362,7 @@ export function isValidUrl(url: string): boolean {
 /**
  * Generate avatar URL from initials
  */
-export function generateAvatarUrl(name: string, size: number = 100): string {
+export function generateAvatarUrl(name: string, size = 100): string {
   const initials = name
     .split(' ')
     .map(word => word.charAt(0).toUpperCase())
@@ -373,7 +375,33 @@ export function generateAvatarUrl(name: string, size: number = 100): string {
   ];
   
   const colorIndex = name.length % colors.length;
-  const bgColor = colors[colorIndex].slice(1); // Remove # from color
+  const bgColor = (colors[colorIndex] ?? '#4ECDC4').slice(1); // Remove # from color
   
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=${size}&background=${bgColor}&color=fff&bold=true`;
+}
+interface NamedUser {
+  name?: string | undefined;
+  username?: string | undefined;
+  firstName?: string | undefined;
+  lastName?: string | undefined;
+}
+
+/**
+ * Best display name for a user: "First Last", then `name`, then `username`.
+ */
+export function getUserDisplayName(user: NamedUser): string {
+  const full = [user.firstName, user.lastName].filter(Boolean).join(' ');
+  return full || user.name || user.username || 'User';
+}
+
+/**
+ * Up to two uppercase initials derived from the user's display name.
+ */
+export function getUserInitials(user: NamedUser): string {
+  return getUserDisplayName(user)
+    .split(/\s+/)
+    .map((part) => part.charAt(0))
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
 }

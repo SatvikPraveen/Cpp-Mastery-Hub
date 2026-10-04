@@ -1,10 +1,12 @@
+import Link from 'next/link';
 import React, { useState } from 'react';
+
 import { Button } from '../UI/Button';
 import { Input } from '../UI/Input';
 
 interface ForgotPasswordProps {
   onSubmit: (email: string) => Promise<void>;
-  loading?: boolean;
+  loading?: boolean | undefined;
 }
 
 export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ 
@@ -66,14 +68,14 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({
             Check your email
           </h3>
           <p className="text-gray-600">
-            We've sent a password reset link to{' '}
+            We&apos;ve sent a password reset link to{' '}
             <span className="font-medium">{email}</span>
           </p>
         </div>
 
         <div className="space-y-3">
           <p className="text-sm text-gray-500">
-            Didn't receive the email? Check your spam folder or{' '}
+            Didn&apos;t receive the email? Check your spam folder or{' '}
             <button
               onClick={() => setSuccess(false)}
               className="text-blue-600 hover:underline"
@@ -83,12 +85,12 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({
           </p>
           
           <div>
-            <a
+            <Link
               href="/auth/login"
               className="text-blue-600 hover:underline text-sm"
             >
               Back to sign in
-            </a>
+            </Link>
           </div>
         </div>
       </div>
@@ -102,7 +104,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({
           Forgot your password?
         </h2>
         <p className="text-gray-600">
-          Enter your email address and we'll send you a link to reset your password.
+          Enter your email address and we&apos;ll send you a link to reset your password.
         </p>
       </div>
 
@@ -128,12 +130,12 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({
       </Button>
 
       <div className="text-center">
-        <a
+        <Link
           href="/auth/login"
           className="text-sm text-blue-600 hover:underline"
         >
           Back to sign in
-        </a>
+        </Link>
       </div>
     </form>
   );

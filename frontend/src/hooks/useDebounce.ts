@@ -117,7 +117,7 @@ export const useDebouncedState = <T>(
  */
 export const useDebouncedSearch = (
   searchTerm: string,
-  delay: number = 300
+  delay = 300
 ): {
   debouncedSearchTerm: string;
   isSearching: boolean;
@@ -175,12 +175,12 @@ export const useDebouncedEffect = (
  */
 export const useDebouncedApiCall = <TArgs extends any[], TResult>(
   apiCall: (...args: TArgs) => Promise<TResult>,
-  delay: number = 300
+  delay = 300
 ): {
   loading: boolean;
   error: Error | null;
   data: TResult | null;
-  debouncedCall: (...args: TArgs) => void;
+  debouncedCall: (...args: TArgs) => void | Promise<void>;
   cancel: () => void;
 } => {
   const [loading, setLoading] = useState(false);
@@ -253,7 +253,7 @@ export const useDebouncedApiCall = <TArgs extends any[], TResult>(
 export const useDebouncedValidation = <T extends Record<string, any>>(
   values: T,
   validator: (values: T) => Record<string, string> | Promise<Record<string, string>>,
-  delay: number = 300
+  delay = 300
 ): {
   errors: Record<string, string>;
   isValidating: boolean;
@@ -279,7 +279,7 @@ export const useDebouncedValidation = <T extends Record<string, any>>(
     };
 
     if (Object.keys(debouncedValues).length > 0) {
-      validateValues();
+      void validateValues();
     }
   }, [debouncedValues, validator]);
 
@@ -304,7 +304,7 @@ export const useDebouncedValidation = <T extends Record<string, any>>(
 export const useDebouncedLocalStorage = <T>(
   key: string,
   initialValue: T,
-  delay: number = 1000
+  delay = 1000
 ): {
   value: T;
   setValue: React.Dispatch<React.SetStateAction<T>>;

@@ -1,4 +1,5 @@
-import { languages, editor } from 'monaco-editor';
+import type * as Monaco from 'monaco-editor';
+import type { languages, editor } from 'monaco-editor';
 
 // C++ Language Configuration
 export const cppLanguageConfig: languages.LanguageConfiguration = {
@@ -312,3 +313,43 @@ export const cppLanguageFeatures = {
     'std::promise': 'Provides a facility to store a value or an exception for asynchronous retrieval',
   },
 };
+
+let configured = false;
+
+/**
+ * Register the C++ language configuration, themes and snippet completions.
+ * Takes the monaco namespace as a parameter so this module never imports the
+ * browser-only monaco runtime itself (safe to import during SSR).
+ */
+export function configureMonaco(monaco: typeof Monaco): void {
+  if (configured) return;
+  configured = true;
+
+  monaco.languages.setLanguageConfiguration('cpp', cppLanguageConfig);
+
+  Object.entries(cppThemes).forEach(([name, theme]) => {
+    monaco.editor.defineTheme(name, theme);
+  });
+
+  monaco.languages.registerCompletionItemProvider('cpp', {
+    provideCompletionItems: (model, position) => {
+      const word = model.getWordUntilPosition(position);
+      const range = {
+        startLineNumber: position.lineNumber,
+        endLineNumber: position.lineNumber,
+        startColumn: word.startColumn,
+        endColumn: word.endColumn,
+      };
+      return {
+        suggestions: cppLanguageFeatures.snippets.map((snippet) => ({
+          label: snippet.label,
+          kind: monaco.languages.CompletionItemKind.Snippet,
+          insertText: snippet.insertText,
+          insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+          documentation: snippet.description,
+          range,
+        })),
+      };
+    },
+  });
+}

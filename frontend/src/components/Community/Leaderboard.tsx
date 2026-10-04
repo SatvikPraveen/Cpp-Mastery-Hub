@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import { Badge } from '../UI/Badge';
 import { Loading } from '../UI/Loading';
 
@@ -44,7 +45,7 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
   const [selectedCategory, setSelectedCategory] = useState(category);
 
   useEffect(() => {
-    const fetchLeaderboard = async () => {
+    const fetchLeaderboard = () => {
       setLoading(true);
       try {
         // Mock data - replace with actual API call
@@ -256,10 +257,13 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
         {/* Filters */}
         <div className="flex flex-wrap gap-4">
           <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-700">Period:</label>
+            <label htmlFor="leaderboard-period" className="text-sm font-medium text-gray-700">
+              Period:
+            </label>
             <select
+              id="leaderboard-period"
               value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value as any)}
+              onChange={(e) => setSelectedPeriod(e.target.value as typeof selectedPeriod)}
               className="text-sm border border-gray-300 rounded px-3 py-1 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="weekly">This Week</option>
@@ -269,10 +273,13 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
           </div>
 
           <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-700">Category:</label>
+            <label htmlFor="leaderboard-category" className="text-sm font-medium text-gray-700">
+              Category:
+            </label>
             <select
+              id="leaderboard-category"
               value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value as any)}
+              onChange={(e) => setSelectedCategory(e.target.value as typeof selectedCategory)}
               className="text-sm border border-gray-300 rounded px-3 py-1 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="overall">Overall</option>
@@ -287,10 +294,10 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
       {/* Top 3 Podium */}
       <div className="p-6 bg-gradient-to-r from-blue-50 to-purple-50">
         <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto">
-          {users.slice(0, 3).map((user, index) => {
+          {users.slice(0, 3).map((_user, index) => {
             const positions = [1, 0, 2]; // Second place in middle for podium effect
-            const actualIndex = positions[index];
-            const podiumUser = users[actualIndex];
+            const podiumUser = users[positions[index] ?? index];
+            if (!podiumUser) return null;
             const heights = ['h-20', 'h-24', 'h-16']; // Different heights for podium effect
 
             return (
@@ -319,8 +326,10 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
                       {getScoreForCategory(podiumUser).toLocaleString()}
                     </p>
                     <div className="flex justify-center space-x-1">
-                      {podiumUser.badges.map((badge, i) => (
-                        <span key={i} className="text-lg">{badge}</span>
+                      {podiumUser.badges.map((badge) => (
+                        <span key={badge} className="text-lg">
+                          {badge}
+                        </span>
                       ))}
                     </div>
                   </div>
@@ -450,3 +459,5 @@ export const Leaderboard: React.FC<LeaderboardProps> = ({
     </div>
   );
 };
+
+export default Leaderboard;

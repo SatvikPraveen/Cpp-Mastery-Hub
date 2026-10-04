@@ -1,6 +1,3 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/UI/Button';
-import { CommentSystem } from './CommentSystem';
 import { 
   ArrowUp, 
   ArrowDown, 
@@ -12,9 +9,17 @@ import {
   Clock,
   Eye
 } from 'lucide-react';
-import { ForumPost, PostReply } from '@/types';
-import { apiService } from '@/services/api';
+import React, { useState, useEffect } from 'react';
+
+import TagList from '@/components/Common/TagList';
+import UserAvatar from '@/components/Common/UserAvatar';
+import { Button } from '@/components/UI/Button';
 import { useAuth } from '@/hooks/useAuth';
+import { apiService } from '@/services/api';
+import type { ForumComment, ForumPost } from '@/types';
+
+import { CommentSection } from './CommentSection';
+import { getAuthorName } from './forumHelpers';
 
 interface PostViewProps {
   postId: string;
@@ -22,47 +27,49 @@ interface PostViewProps {
 
 export const PostView: React.FC<PostViewProps> = ({ postId }) => {
   const [post, setPost] = useState<ForumPost | null>(null);
-  const [replies, setReplies] = useState<PostReply[]>([]);
+  const [replies, setReplies] = useState<ForumComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [userVote, setUserVote] = useState<'up' | 'down' | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
-    fetchPost();
-    markAsViewed();
+    const fetchPost = async () => {
+      try {
+        setLoading(true);
+        const [postRes, repliesRes] = await Promise.all([
+          apiService.get<ForumPost & { userVote?: 'up' | 'down' | null }>(
+            `/api/forum/posts/${postId}`
+          ),
+          apiService.get<ForumComment[]>(`/api/forum/posts/${postId}/replies`),
+        ]);
+
+        setPost(postRes.data);
+        setReplies(repliesRes.data);
+        setUserVote(postRes.data.userVote ?? null);
+      } catch (error) {
+        console.error('Failed to fetch post:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const markAsViewed = async () => {
+      try {
+        await apiService.post(`/api/forum/posts/${postId}/view`);
+      } catch (error) {
+        console.error('Failed to mark post as viewed:', error);
+      }
+    };
+
+    void fetchPost();
+    void markAsViewed();
   }, [postId]);
-
-  const fetchPost = async () => {
-    try {
-      setLoading(true);
-      const [postRes, repliesRes] = await Promise.all([
-        apiService.get(`/api/forum/posts/${postId}`),
-        apiService.get(`/api/forum/posts/${postId}/replies`)
-      ]);
-      
-      setPost(postRes.data);
-      setReplies(repliesRes.data);
-      setUserVote(postRes.data.userVote);
-    } catch (error) {
-      console.error('Failed to fetch post:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const markAsViewed = async () => {
-    try {
-      await apiService.post(`/api/forum/posts/${postId}/view`);
-    } catch (error) {
-      console.error('Failed to mark post as viewed:', error);
-    }
-  };
 
   const handleVote = async (voteType: 'up' | 'down') => {
     if (!user) return;
     
     try {
-      const response = await apiService.post(`/api/forum/posts/${postId}/vote`, {
+      const response = await apiService.post<Partial<ForumPost>>(`/api/forum/posts/${postId}/vote`, {
         type: userVote === voteType ? null : voteType
       });
       
@@ -74,23 +81,24 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
   };
 
   const handleShare = async () => {
-    if (navigator.share) {
-      navigator.share({
-        title: post?.title,
-        url: window.location.href
-      });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      // Show toast notification
+    const url = window.location.href;
+    try {
+      if (typeof navigator.share === 'function') {
+        await navigator.share({ title: post?.title ?? 'C++ Mastery Hub', url });
+      } else {
+        await navigator.clipboard.writeText(url);
+      }
+    } catch (error) {
+      console.error('Failed to share post:', error);
     }
   };
 
   if (loading) {
     return (
       <div className="animate-pulse space-y-4">
-        <div className="h-8 bg-muted rounded w-3/4"></div>
-        <div className="h-4 bg-muted rounded w-1/2"></div>
-        <div className="h-64 bg-muted rounded"></div>
+        <div className="h-8 bg-muted rounded w-3/4" />
+        <div className="h-4 bg-muted rounded w-1/2" />
+        <div className="h-64 bg-muted rounded" />
       </div>
     );
   }
@@ -100,12 +108,13 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
       <div className="text-center py-12">
         <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
         <h3 className="text-lg font-medium">Post not found</h3>
-        <p className="text-muted-foreground">The post you're looking for doesn't exist.</p>
+        <p className="text-muted-foreground">The post you&apos;re looking for doesn&apos;t exist.</p>
       </div>
     );
   }
 
-  const isAuthor = user?.id === post.author.id;
+  const isAuthor = user?.id === (post.author?.id ?? post.userId);
+  const authorName = getAuthorName(post);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -118,7 +127,7 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleVote('up')}
+                onClick={() => void handleVote('up')}
                 className={`h-8 w-8 p-0 ${userVote === 'up' ? 'text-green-600' : ''}`}
                 disabled={!user}
               >
@@ -126,13 +135,13 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
               </Button>
               
               <span className="text-sm font-medium">
-                {post.upvotes - post.downvotes}
+                {(post.upvotes ?? 0) - (post.downvotes ?? 0) || post.voteScore}
               </span>
               
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => handleVote('down')}
+                onClick={() => void handleVote('down')}
                 className={`h-8 w-8 p-0 ${userVote === 'down' ? 'text-red-600' : ''}`}
                 disabled={!user}
               >
@@ -150,10 +159,8 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
                   
                   <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                     <div className="flex items-center space-x-2">
-                      <div className="h-6 w-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-medium">
-                        {post.author.firstName[0]}{post.author.lastName[0]}
-                      </div>
-                      <span>{post.author.firstName} {post.author.lastName}</span>
+                      <UserAvatar user={post.author ?? post.user} size="sm" />
+                      <span>{authorName}</span>
                     </div>
                     
                     <div className="flex items-center space-x-1">
@@ -163,7 +170,7 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
                     
                     <div className="flex items-center space-x-1">
                       <Eye className="h-4 w-4" />
-                      <span>{post.viewsCount} views</span>
+                      <span>{post.viewsCount ?? post.viewCount} views</span>
                     </div>
                   </div>
                 </div>
@@ -172,7 +179,8 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={handleShare}
+                    onClick={() => void handleShare()}
+                    aria-label="Share post"
                   >
                     <Share2 className="h-4 w-4" />
                   </Button>
@@ -197,17 +205,14 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
               </div>
 
               <div className="prose dark:prose-invert max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: post.content }} />
+                {/* Rendered as text: post bodies are user content and no HTML sanitizer is bundled. */}
+                <p className="whitespace-pre-wrap">{post.content}</p>
               </div>
 
               {/* Tags */}
-              {post.tags && post.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-4">
-                  {post.tags.map(tag => (
-                    <Badge key={tag} variant="secondary">
-                      {tag}
-                    </Badge>
-                  ))}
+              {post.tags.length > 0 && (
+                <div className="mt-4">
+                  <TagList tags={post.tags} />
                 </div>
               )}
             </div>
@@ -216,10 +221,14 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
       </div>
 
       {/* Comments */}
-      <CommentSystem
+      <CommentSection
         postId={postId}
-        replies={replies}
-        onReplyAdded={(reply) => setReplies(prev => [...prev, reply])}
+        comments={replies}
+        onCommentAdded={(reply) => setReplies((prev) => [...prev, reply])}
+        onCommentUpdated={(id, updated) =>
+          setReplies((prev) => prev.map((r) => (r.id === id ? updated : r)))
+        }
+        onCommentDeleted={(id) => setReplies((prev) => prev.filter((r) => r.id !== id))}
       />
     </div>
   );

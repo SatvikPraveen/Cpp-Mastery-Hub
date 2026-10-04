@@ -1,10 +1,23 @@
 import { apiService } from './api';
 import { storageService } from './storage';
 
+// Experimental browser APIs not yet in lib.dom.d.ts
+interface FirstInputEntry extends PerformanceEntry {
+  processingStart: number;
+}
+interface LayoutShiftEntry extends PerformanceEntry {
+  value: number;
+  hadRecentInput: boolean;
+}
+interface NavigatorWithHints extends Navigator {
+  connection?: { effectiveType?: string };
+  deviceMemory?: number;
+}
+
 export interface AnalyticsEvent {
   event: string;
-  properties?: Record<string, any>;
-  userId?: string;
+  properties?: Record<string, unknown>;
+  userId?: string | undefined;
   sessionId?: string;
   timestamp?: Date;
   page?: string;
@@ -25,11 +38,17 @@ export interface UserAction {
   category: string;
   label?: string;
   value?: number;
-  properties?: Record<string, any>;
+  properties?: Record<string, unknown>;
 }
 
 export interface LearningEvent {
-  type: 'lesson_start' | 'lesson_complete' | 'quiz_start' | 'quiz_complete' | 'course_enroll' | 'course_complete';
+  type:
+    | 'lesson_start'
+    | 'lesson_complete'
+    | 'quiz_start'
+    | 'quiz_complete'
+    | 'course_enroll'
+    | 'course_complete';
   courseId?: string;
   lessonId?: string;
   quizId?: string;
@@ -66,8 +85,8 @@ export interface PerformanceMetrics {
 
 class AnalyticsService {
   private sessionId: string;
-  private userId?: string;
-  private isEnabled: boolean = true;
+  private userId?: string | undefined;
+  private isEnabled = true;
   private eventQueue: AnalyticsEvent[] = [];
   private pageStartTime: number = Date.now();
   private performanceObserver?: PerformanceObserver;
@@ -105,7 +124,9 @@ class AnalyticsService {
           }
         });
 
-        this.performanceObserver.observe({ entryTypes: ['paint', 'largest-contentful-paint', 'first-input', 'layout-shift'] });
+        this.performanceObserver.observe({
+          entryTypes: ['paint', 'largest-contentful-paint', 'first-input', 'layout-shift'],
+        });
       } catch (error) {
         console.warn('Performance observer not fully supported:', error);
       }
@@ -119,7 +140,7 @@ class AnalyticsService {
           this.track('performance_metric', {
             metric: 'first_contentful_paint',
             value: entry.startTime,
-            page: window.location.pathname
+            page: window.location.pathname,
           });
         }
         break;
@@ -128,24 +149,24 @@ class AnalyticsService {
         this.track('performance_metric', {
           metric: 'largest_contentful_paint',
           value: entry.startTime,
-          page: window.location.pathname
+          page: window.location.pathname,
         });
         break;
 
       case 'first-input':
         this.track('performance_metric', {
           metric: 'first_input_delay',
-          value: (entry as any).processingStart - entry.startTime,
-          page: window.location.pathname
+          value: (entry as FirstInputEntry).processingStart - entry.startTime,
+          page: window.location.pathname,
         });
         break;
 
       case 'layout-shift':
-        if (!(entry as any).hadRecentInput) {
+        if (!(entry as LayoutShiftEntry).hadRecentInput) {
           this.track('performance_metric', {
             metric: 'cumulative_layout_shift',
-            value: (entry as any).value,
-            page: window.location.pathname
+            value: (entry as LayoutShiftEntry).value,
+            page: window.location.pathname,
           });
         }
         break;
@@ -153,28 +174,31 @@ class AnalyticsService {
   }
 
   private trackPerformance(): void {
-    if (typeof window === 'undefined' || !window.performance) return;
+    if (!window?.performance) return;
 
-    const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-    
+    const navigation = performance.getEntriesByType('navigation')[0] as
+      PerformanceNavigationTiming | undefined;
+
     if (navigation) {
+      // Navigation timing entries are relative to the navigation start (startTime === 0).
       const metrics: PerformanceMetrics = {
-        pageLoadTime: navigation.loadEventEnd - navigation.navigationStart,
-        domContentLoaded: navigation.domContentLoadedEventEnd - navigation.navigationStart
+        pageLoadTime: navigation.loadEventEnd - navigation.startTime,
+        domContentLoaded: navigation.domContentLoadedEventEnd - navigation.startTime,
       };
+      const nav = navigator as NavigatorWithHints;
 
       this.track('page_performance', {
         ...metrics,
         page: window.location.pathname,
-        connectionType: (navigator as any).connection?.effectiveType,
-        deviceMemory: (navigator as any).deviceMemory
+        connectionType: nav.connection?.effectiveType,
+        deviceMemory: nav.deviceMemory,
       });
     }
   }
 
   private startPeriodicFlush(): void {
     this.flushTimer = setInterval(() => {
-      this.flush();
+      void this.flush();
     }, this.flushInterval);
   }
 
@@ -183,13 +207,13 @@ class AnalyticsService {
 
     window.addEventListener('beforeunload', () => {
       this.trackPageView(window.location.pathname, document.title, Date.now() - this.pageStartTime);
-      this.flush(true); // Force immediate flush
+      void this.flush(true); // Force immediate flush
     });
 
     // Track page visibility changes
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'hidden') {
-        this.flush(true);
+        void this.flush(true);
       }
     });
   }
@@ -203,7 +227,7 @@ class AnalyticsService {
     const userPrefs = storageService.getUserPreference('analytics_preferences', {
       enabled: true,
       trackPerformance: true,
-      trackErrors: true
+      trackErrors: true,
     });
 
     this.isEnabled = this.isEnabled && userPrefs.enabled;
@@ -211,7 +235,7 @@ class AnalyticsService {
     this.track('analytics_initialized', {
       userId,
       sessionId: this.sessionId,
-      preferences: userPrefs
+      preferences: userPrefs,
     });
   }
 
@@ -220,7 +244,7 @@ class AnalyticsService {
     this.track('user_identified', { userId });
   }
 
-  track(event: string, properties?: Record<string, any>): void {
+  track(event: string, properties?: Record<string, unknown>): void {
     if (!this.isEnabled) return;
 
     const analyticsEvent: AnalyticsEvent = {
@@ -230,26 +254,26 @@ class AnalyticsService {
         sessionId: this.sessionId,
         page: typeof window !== 'undefined' ? window.location.pathname : undefined,
         referrer: typeof document !== 'undefined' ? document.referrer : undefined,
-        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined
+        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
       },
       userId: this.userId,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
     this.eventQueue.push(analyticsEvent);
 
     // Auto-flush if queue is getting large
     if (this.eventQueue.length >= this.maxQueueSize) {
-      this.flush();
+      void this.flush();
     }
   }
 
   trackPageView(page: string, title?: string, duration?: number): void {
     this.track('page_view', {
       page,
-      title: title || document.title,
+      title: title ?? document.title,
       duration,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
 
     this.pageStartTime = Date.now();
@@ -261,7 +285,7 @@ class AnalyticsService {
       category: action.category,
       label: action.label,
       value: action.value,
-      ...action.properties
+      ...action.properties,
     });
   }
 
@@ -273,7 +297,7 @@ class AnalyticsService {
       quizId: event.quizId,
       score: event.score,
       timeSpent: event.timeSpent,
-      attempts: event.attempts
+      attempts: event.attempts,
     });
   }
 
@@ -284,7 +308,7 @@ class AnalyticsService {
       linesOfCode: event.linesOfCode,
       executionTime: event.executionTime,
       success: event.success,
-      errorType: event.errorType
+      errorType: event.errorType,
     });
   }
 
@@ -294,16 +318,16 @@ class AnalyticsService {
       postId: event.postId,
       commentId: event.commentId,
       targetUserId: event.targetUserId,
-      category: event.category
+      category: event.category,
     });
   }
 
-  trackError(error: Error, context?: Record<string, any>): void {
+  trackError(error: Error, context?: Record<string, unknown>): void {
     this.track('error', {
       message: error.message,
       stack: error.stack,
       name: error.name,
-      ...context
+      ...context,
     });
   }
 
@@ -311,7 +335,7 @@ class AnalyticsService {
     this.track('conversion', {
       event,
       value,
-      currency: currency || 'USD'
+      currency: currency ?? 'USD',
     });
   }
 
@@ -319,14 +343,14 @@ class AnalyticsService {
     this.track('search', {
       query,
       category,
-      resultsCount
+      resultsCount,
     });
   }
 
-  trackFeatureUsage(feature: string, properties?: Record<string, any>): void {
+  trackFeatureUsage(feature: string, properties?: Record<string, unknown>): void {
     this.track('feature_usage', {
       feature,
-      ...properties
+      ...properties,
     });
   }
 
@@ -335,14 +359,14 @@ class AnalyticsService {
     storageService.setAppState(`timer_${timerName}`, Date.now());
   }
 
-  endTimer(timerName: string, properties?: Record<string, any>): number {
+  endTimer(timerName: string, properties?: Record<string, unknown>): number {
     const startTime = storageService.getAppState(`timer_${timerName}`, Date.now());
     const duration = Date.now() - startTime;
-    
+
     this.track('timer', {
       name: timerName,
       duration,
-      ...properties
+      ...properties,
     });
 
     storageService.removeAppState(`timer_${timerName}`);
@@ -350,18 +374,22 @@ class AnalyticsService {
   }
 
   // Cohort and A/B testing
-  trackExperiment(experimentName: string, variant: string, properties?: Record<string, any>): void {
+  trackExperiment(
+    experimentName: string,
+    variant: string,
+    properties?: Record<string, unknown>
+  ): void {
     this.track('experiment', {
       experiment: experimentName,
       variant,
-      ...properties
+      ...properties,
     });
   }
 
-  trackCohort(cohortName: string, properties?: Record<string, any>): void {
+  trackCohort(cohortName: string, properties?: Record<string, unknown>): void {
     this.track('cohort', {
       cohort: cohortName,
-      ...properties
+      ...properties,
     });
   }
 
@@ -370,59 +398,79 @@ class AnalyticsService {
     this.trackLearningEvent({
       type: 'lesson_start',
       courseId,
-      lessonId
+      lessonId,
     });
 
     this.track('lesson_progress', {
       courseId,
       lessonId,
-      progressPercent
+      progressPercent,
     });
   }
 
-  trackQuizAttempt(courseId: string, lessonId: string, quizId: string, score: number, timeSpent: number): void {
+  trackQuizAttempt(
+    courseId: string,
+    lessonId: string,
+    quizId: string,
+    score: number,
+    timeSpent: number
+  ): void {
     this.trackLearningEvent({
       type: 'quiz_complete',
       courseId,
       lessonId,
       quizId,
       score,
-      timeSpent
+      timeSpent,
     });
   }
 
-  trackCodeExecution(language: string, success: boolean, executionTime: number, linesOfCode: number): void {
+  trackCodeExecution(
+    language: string,
+    success: boolean,
+    executionTime: number,
+    linesOfCode: number
+  ): void {
     this.trackCodeEvent({
       type: 'code_execute',
       language,
       success,
       executionTime,
-      linesOfCode
+      linesOfCode,
     });
   }
 
-  trackSocialAction(action: 'like' | 'share' | 'comment' | 'follow', targetType: 'post' | 'user' | 'snippet', targetId: string): void {
+  trackSocialAction(
+    action: 'like' | 'share' | 'comment' | 'follow',
+    targetType: 'post' | 'user' | 'snippet',
+    targetId: string
+  ): void {
     this.trackCommunityEvent({
-      type: action === 'follow' ? 'user_follow' : action === 'like' ? 'post_like' : 'comment_create',
+      type:
+        action === 'follow' ? 'user_follow' : action === 'like' ? 'post_like' : 'comment_create',
       ...(targetType === 'post' && { postId: targetId }),
-      ...(targetType === 'user' && { targetUserId: targetId })
+      ...(targetType === 'user' && { targetUserId: targetId }),
     });
   }
 
   // Batch operations
-  async flush(immediate: boolean = false): Promise<void> {
+  async flush(immediate = false): Promise<void> {
     if (this.eventQueue.length === 0) return;
 
     const events = [...this.eventQueue];
     this.eventQueue = [];
 
     try {
-      await apiService.post('/analytics/events', { events }, {
-        timeout: immediate ? 5000 : 15000
-      });
+      await apiService.post(
+        '/analytics/events',
+        { events },
+        {
+          timeout: immediate ? 5000 : 15000,
+        }
+      );
     } catch (error) {
       console.warn('Failed to send analytics events:', error);
-      
+
       // Re-add events to queue if not immediate flush
       if (!immediate && this.eventQueue.length < this.maxQueueSize) {
         this.eventQueue.unshift(...events.slice(0, this.maxQueueSize - this.eventQueue.length));
@@ -435,7 +483,7 @@ class AnalyticsService {
     this.isEnabled = enabled;
     storageService.setUserPreference('analytics_preferences', {
       ...storageService.getUserPreference('analytics_preferences', {}),
-      enabled
+      enabled,
     });
   }
 
@@ -464,7 +512,7 @@ class AnalyticsService {
       this.performanceObserver.disconnect();
     }
 
-    this.flush(true);
+    void this.flush(true);
   }
 }
 
@@ -474,46 +522,52 @@ export const analyticsService = new AnalyticsService();
 // Convenience functions
 export const analytics = {
   // Basic tracking
-  track: (event: string, properties?: Record<string, any>) => analyticsService.track(event, properties),
-  
+  track: (event: string, properties?: Record<string, unknown>) =>
+    analyticsService.track(event, properties),
+
   // Page tracking
   page: (page: string, title?: string) => analyticsService.trackPageView(page, title),
-  
+
   // User identification
   identify: (userId: string) => analyticsService.setUserId(userId),
-  
+
   // Specialized tracking
   action: (action: UserAction) => analyticsService.trackUserAction(action),
   learning: (event: LearningEvent) => analyticsService.trackLearningEvent(event),
   code: (event: CodeEvent) => analyticsService.trackCodeEvent(event),
   community: (event: CommunityEvent) => analyticsService.trackCommunityEvent(event),
-  error: (error: Error, context?: Record<string, any>) => analyticsService.trackError(error, context),
-  
+  error: (error: Error, context?: Record<string, unknown>) =>
+    analyticsService.trackError(error, context),
+
   // Timing
   time: {
     start: (name: string) => analyticsService.startTimer(name),
-    end: (name: string, properties?: Record<string, any>) => analyticsService.endTimer(name, properties)
+    end: (name: string, properties?: Record<string, unknown>) =>
+      analyticsService.endTimer(name, properties),
   },
-  
+
   // Configuration
   enable: () => analyticsService.setEnabled(true),
   disable: () => analyticsService.setEnabled(false),
-  isEnabled: () => analyticsService.isTrackingEnabled()
+  isEnabled: () => analyticsService.isTrackingEnabled(),
 };
 
 // Auto-initialize error tracking
 if (typeof window !== 'undefined') {
   window.addEventListener('error', (event) => {
-    analyticsService.trackError(event.error || new Error(event.message), {
-      filename: event.filename,
-      lineno: event.lineno,
-      colno: event.colno
-    });
+    analyticsService.trackError(
+      event.error instanceof Error ? event.error : new Error(event.message),
+      {
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+      }
+    );
   });
 
   window.addEventListener('unhandledrejection', (event) => {
-    analyticsService.trackError(new Error(`Unhandled promise rejection: ${event.reason}`), {
-      type: 'unhandledrejection'
+    analyticsService.trackError(new Error(`Unhandled promise rejection: ${String(event.reason)}`), {
+      type: 'unhandledrejection',
     });
   });
 }

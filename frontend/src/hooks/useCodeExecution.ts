@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+
 import { apiService } from '../services/api';
 import { storageService } from '../services/storage';
 
@@ -340,8 +341,8 @@ export const useBatchCodeExecution = () => {
 
     try {
       // Execute items sequentially to avoid overwhelming the server
-      for (let i = 0; i < codeItems.length; i++) {
-        const { id, code, options = {} } = codeItems[i];
+      for (const [i, item] of codeItems.entries()) {
+        const { id, code, options = {} } = item;
         
         try {
           const response = await apiService.post<ExecutionResult>('/code/execute', {
@@ -425,10 +426,10 @@ export const useRealtimeExecution = (
     setIsDebouncing(true);
 
     // Set new timer
-    debounceTimerRef.current = setTimeout(async () => {
+    debounceTimerRef.current = setTimeout(() => void (async () => {
       setIsDebouncing(false);
       await execution.executeCode(code, executionOptions);
-    }, debounceMs);
+    })(), debounceMs);
 
     // Cleanup
     return () => {

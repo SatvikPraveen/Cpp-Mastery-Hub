@@ -1,18 +1,9 @@
+import { Trophy, Clock, BookOpen, Code, TrendingUp } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+
 import { Progress } from '@/components/UI/Progress';
-import { Badge } from '@/components/UI/Badge';
-import { 
-  Trophy, 
-  Target, 
-  Clock, 
-  CheckCircle,
-  BookOpen,
-  Code,
-  Brain,
-  TrendingUp
-} from 'lucide-react';
-import { UserProgress, Achievement, LearningStats } from '@/types';
 import { apiService } from '@/services/api';
+import { UserProgress, Achievement, LearningStats } from '@/types';
 
 interface ProgressTrackerProps {
   userId?: string;
@@ -31,16 +22,16 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchProgressData();
+    void fetchProgressData();
   }, [userId, courseId]);
 
   const fetchProgressData = async () => {
     try {
       setLoading(true);
       const [progressRes, achievementsRes, statsRes] = await Promise.all([
-        apiService.get('/api/user/progress', { params: { courseId } }),
-        apiService.get('/api/user/achievements'),
-        apiService.get('/api/user/stats')
+        apiService.get<UserProgress>('/api/user/progress', { params: { courseId } }),
+        apiService.get<Achievement[]>('/api/user/achievements'),
+        apiService.get<LearningStats>('/api/user/stats')
       ]);
       
       setProgress(progressRes.data);
@@ -56,9 +47,9 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
   if (loading) {
     return (
       <div className="animate-pulse space-y-4">
-        <div className="h-6 bg-muted rounded w-3/4"></div>
-        <div className="h-4 bg-muted rounded w-1/2"></div>
-        <div className="h-20 bg-muted rounded"></div>
+        <div className="h-6 bg-muted rounded w-3/4" />
+        <div className="h-4 bg-muted rounded w-1/2" />
+        <div className="h-20 bg-muted rounded" />
       </div>
     );
   }
@@ -73,17 +64,19 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
     );
   }
 
+  const overallProgress = progress.overallProgress ?? 0;
+
   if (compact) {
     return (
       <div className="bg-background border rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-semibold">Your Progress</h3>
           <span className="text-sm text-muted-foreground">
-            {Math.round(progress.overallProgress)}% complete
+            {Math.round(overallProgress)}% complete
           </span>
         </div>
         
-        <Progress value={progress.overallProgress} className="h-3 mb-3" />
+        <Progress value={overallProgress} className="h-3 mb-3" />
         
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
@@ -120,10 +113,10 @@ export const ProgressTracker: React.FC<ProgressTrackerProps> = ({
             <div className="flex items-center justify-between mb-2">
               <span className="font-medium">Overall Progress</span>
               <span className="text-sm text-muted-foreground">
-                {Math.round(progress.overallProgress)}% complete
+                {Math.round(overallProgress)}% complete
               </span>
             </div>
-            <Progress value={progress.overallProgress} className="h-3" />
+            <Progress value={overallProgress} className="h-3" />
           </div>
 
           {progress.courseProgress && Object.entries(progress.courseProgress).map(([courseId, courseProgress]) => (

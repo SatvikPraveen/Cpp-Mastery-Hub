@@ -1,4 +1,3 @@
-import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle, 
   XCircle, 
@@ -11,8 +10,9 @@ import {
   RotateCcw,
   Loader2
 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 
-interface ExecutionResult {
+export interface ExecutionOutputResult {
   success: boolean;
   output: string;
   error: string;
@@ -23,21 +23,21 @@ interface ExecutionResult {
   warnings?: string[];
 }
 
-interface ExecutionHistoryItem {
+export interface ExecutionHistoryItem {
   id: string;
   timestamp: Date;
-  result: ExecutionResult;
+  result: ExecutionOutputResult;
   code: string;
 }
 
 interface ExecutionOutputProps {
-  result: ExecutionResult | null;
+  result: ExecutionOutputResult | null;
   isExecuting: boolean;
   history?: ExecutionHistoryItem[];
   onRerun?: () => void;
 }
 
-const ExecutionOutput: React.FC<ExecutionOutputProps> = ({
+export const ExecutionOutput: React.FC<ExecutionOutputProps> = ({
   result,
   isExecuting,
   history = [],
@@ -94,12 +94,18 @@ const ExecutionOutput: React.FC<ExecutionOutputProps> = ({
     }
   };
 
-  const tabs = [
-    { id: 'output', label: 'Output', icon: Terminal },
+  type TabId = 'output' | 'error' | 'compilation' | 'history';
+  const tabs: Array<{ id: TabId; label: string; icon: typeof Terminal; badge: number }> = [
+    { id: 'output', label: 'Output', icon: Terminal, badge: 0 },
     { id: 'error', label: 'Errors', icon: XCircle, badge: result?.error ? 1 : 0 },
-    { id: 'compilation', label: 'Compilation', icon: AlertTriangle, badge: result?.warnings?.length || 0 },
-    { id: 'history', label: 'History', icon: Clock, badge: history.length }
-  ] as const;
+    {
+      id: 'compilation',
+      label: 'Compilation',
+      icon: AlertTriangle,
+      badge: result?.warnings?.length ?? 0,
+    },
+    { id: 'history', label: 'History', icon: Clock, badge: history.length },
+  ];
 
   if (isExecuting) {
     return (
@@ -145,11 +151,13 @@ const ExecutionOutput: React.FC<ExecutionOutputProps> = ({
               ) : (
                 <XCircle className="h-5 w-5 text-red-600" />
               )}
-              <span className={`font-medium ${
+              <span
+                className={`font-medium ${
                 result.success 
                   ? 'text-green-700 dark:text-green-400' 
                   : 'text-red-700 dark:text-red-400'
-              }`}>
+              }`}
+              >
                 {result.success ? 'Execution Successful' : 'Execution Failed'}
               </span>
             </div>

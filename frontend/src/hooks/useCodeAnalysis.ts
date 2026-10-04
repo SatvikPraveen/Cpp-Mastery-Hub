@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+
 import { apiService } from '../services/api';
 
 export interface CodeIssue {
@@ -264,10 +265,10 @@ export const useRealtimeCodeAnalysis = (
     setIsDebouncing(true);
 
     // Set new timer
-    debounceTimerRef.current = setTimeout(async () => {
+    debounceTimerRef.current = setTimeout(() => void (async () => {
       setIsDebouncing(false);
       await analysis.analyzeCode(code, analysisOptions);
-    }, debounceMs);
+    })(), debounceMs);
 
     // Cleanup
     return () => {
@@ -352,8 +353,8 @@ export const useBatchCodeAnalysis = () => {
 
   return {
     isAnalyzing,
-    results: results,
-    errors: errors,
+    results,
+    errors,
     analyzeBatch,
     getResult,
     getError,
@@ -382,9 +383,9 @@ export const useAnalysisHistory = () => {
   }, []);
 
   const compareWithPrevious = useCallback((currentResult: AnalysisResult) => {
-    if (history.length === 0) return null;
+    const previous = history[0]?.result;
+    if (!previous) return null;
 
-    const previous = history[0].result;
     return {
       scoreChange: currentResult.overall_score - previous.overall_score,
       issueCountChange: currentResult.issues.length - previous.issues.length,

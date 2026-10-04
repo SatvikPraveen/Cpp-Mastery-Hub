@@ -1,6 +1,3 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
 import { 
   Home, 
   Code, 
@@ -17,24 +14,27 @@ import {
   Monitor,
   ChevronDown,
   LogOut,
-  Zap
-} from 'lucide-react';
+  Zap, type LucideIcon } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import React, { useState, useEffect } from 'react';
 
 import { useAuth } from '../../hooks/useAuth';
+import { useNotifications } from '../../hooks/useNotifications';
 import { useTheme } from '../../hooks/useTheme';
-import SearchModal from '../Search/SearchModal';
-import NotificationPanel from '../Notification/NotificationList';
+import { NotificationDropdown } from '../Notification/NotificationList';
+import { SearchModal } from '../Search/SearchModal';
 
 interface MainLayoutProps {
   children: React.ReactNode;
-  title?: string;
-  description?: string;
+  title?: string | undefined;
+  description?: string | undefined;
 }
 
 interface NavigationItem {
   name: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   badge?: number;
   subItems?: Array<{
     name: string;
@@ -55,6 +55,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notificationState = useNotifications();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
 
@@ -138,7 +139,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
   const handleLogout = async () => {
     await logout();
-    router.push('/auth/login');
+    void router.push('/auth/login');
   };
 
   const isActivePath = (href: string) => {
@@ -153,7 +154,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
       </div>
     );
   }
@@ -169,11 +170,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       )}
 
       {/* Sidebar */}
-      <div className={`
+      <div
+        className={`
         fixed inset-y-0 left-0 z-30 w-64 bg-white dark:bg-gray-800 shadow-lg transform transition-transform duration-300 ease-in-out
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0 lg:static lg:inset-0
-      `}>
+      `}
+      >
         {/* Sidebar header */}
         <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 dark:border-gray-700">
           <Link href="/dashboard" className="flex items-center space-x-2">
@@ -209,10 +212,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                       }
                     `}
                   >
-                    <Icon className={`
+                    <Icon
+                      className={`
                       mr-3 h-5 w-5 transition-colors duration-200
                       ${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500 dark:group-hover:text-gray-300'}
-                    `} />
+                    `}
+                    />
                     {item.name}
                     {item.badge && (
                       <span className="ml-auto bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 text-xs rounded-full px-2 py-1">
@@ -247,7 +252,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             <div className="flex items-center">
               <img
                 className="h-8 w-8 rounded-full"
-                src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=3B82F6&color=fff`}
+                src={user.avatarUrl ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=3B82F6&color=fff`}
                 alt={user.username}
               />
               <div className="ml-3">
@@ -339,7 +344,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
               >
                 <Bell className="h-5 w-5" />
                 {/* Notification badge */}
-                <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-400 ring-2 ring-white dark:ring-gray-800"></span>
+                <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-red-400 ring-2 ring-white dark:ring-gray-800" />
               </button>
 
               {/* User menu */}
@@ -351,7 +356,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                   >
                     <img
                       className="h-8 w-8 rounded-full"
-                      src={user.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=3B82F6&color=fff`}
+                      src={user.avatarUrl ?? `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}&background=3B82F6&color=fff`}
                       alt={user.username}
                     />
                     <ChevronDown className="h-4 w-4 text-gray-400" />
@@ -412,10 +417,21 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       />
 
       {/* Notifications Panel */}
-      <NotificationPanel 
-        isOpen={notificationsOpen} 
-        onClose={() => setNotificationsOpen(false)} 
-      />
+      {notificationsOpen && (
+        <div className="fixed right-4 top-16 z-50">
+          <NotificationDropdown
+            notifications={notificationState.notifications}
+            onRead={(id) => void notificationState.markAsRead(id)}
+            onUnread={(id) => void notificationState.markAsUnread(id)}
+            onDelete={(id) => void notificationState.deleteNotification(id)}
+            onMarkAllRead={() => void notificationState.markAllAsRead()}
+            onViewAll={() => {
+              setNotificationsOpen(false);
+              void router.push('/notifications');
+            }}
+          />
+        </div>
+      )}
     </div>
   );
 };

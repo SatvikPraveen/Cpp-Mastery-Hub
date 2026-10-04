@@ -1,68 +1,78 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { GetServerSideProps } from 'next';
-import { ArrowLeft, Heart, MessageCircle, Share, Bookmark, Flag, Edit, Trash2, Award, Eye, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Layout from '../../components/Layout/Layout';
-import CommentSection from '../../components/Community/CommentSection';
-import UserAvatar from '../../components/Common/UserAvatar';
+import { ArrowLeft, Heart, MessageCircle, Share, Bookmark, Flag, Edit, Trash2, Award, Eye, Clock } from 'lucide-react';
+import { GetServerSideProps } from 'next';
+import { useRouter } from 'next/router';
+import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
+
 import TagList from '../../components/Common/TagList';
+import UserAvatar from '../../components/Common/UserAvatar';
+import CommentSection from '../../components/Community/CommentSection';
+import Layout from '../../components/Layout/Layout';
 import { useAuth } from '../../hooks/useAuth';
 import { communityService } from '../../services/api';
-import { ForumPost, Comment, User } from '../../types';
+import type { ForumComment, ForumPost } from '../../types';
 
 interface PostPageProps {
   postId: string;
 }
 
+/** Post payload as returned to a signed-in viewer. */
+type PostWithViewerState = ForumPost & {
+  likes?: number;
+  views?: number;
+  isLikedByUser?: boolean;
+  isBookmarkedByUser?: boolean;
+};
+
 const PostPage: React.FC<PostPageProps> = ({ postId }) => {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const [post, setPost] = useState<ForumPost | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<ForumComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [viewCount, setViewCount] = useState(0);
-  const [showShareModal, setShowShareModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
   useEffect(() => {
-    if (postId) {
-      fetchPostData();
-    }
-  }, [postId, isAuthenticated]);
+    if (!postId) return;
 
-  const fetchPostData = async () => {
-    try {
-      setLoading(true);
-      const [postResponse, commentsResponse] = await Promise.all([
-        communityService.getPost(postId),
-        communityService.getComments(postId)
-      ]);
+    const fetchPostData = async () => {
+      try {
+        setLoading(true);
+        const [postResponse, commentsResponse] = await Promise.all([
+          communityService.getPost(postId),
+          communityService.getComments(postId),
+        ]);
 
-      setPost(postResponse.data);
-      setComments(commentsResponse.data);
-      setLikeCount(postResponse.data.likes || 0);
-      setViewCount(postResponse.data.views || 0);
-      
-      if (isAuthenticated) {
-        setIsLiked(postResponse.data.isLikedByUser || false);
-        setIsBookmarked(postResponse.data.isBookmarkedByUser || false);
+        const postData = postResponse.data as PostWithViewerState;
+        setPost(postData);
+        setComments(commentsResponse.data as ForumComment[]);
+        setLikeCount(postData.likes ?? postData.upvotes ?? 0);
+        setViewCount(postData.views ?? postData.viewCount);
+
+        if (isAuthenticated) {
+          setIsLiked(postData.isLikedByUser ?? false);
+          setIsBookmarked(postData.isBookmarkedByUser ?? false);
+        }
+      } catch (err) {
+        setError('Failed to load post');
+        console.error('Error fetching post data:', err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      setError('Failed to load post');
-      console.error('Error fetching post data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    void fetchPostData();
+  }, [postId, isAuthenticated]);
 
   const handleLike = async () => {
     if (!isAuthenticated) {
-      router.push('/auth/login');
+      void router.push('/auth/login');
       return;
     }
 
@@ -80,33 +90,29 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
     }
   };
 
-  const handleBookmark = async () => {
+  const handleBookmark = () => {
     if (!isAuthenticated) {
-      router.push('/auth/login');
+      void router.push('/auth/login');
       return;
     }
 
-    try {
-      // Implementation would depend on your bookmark API
-      setIsBookmarked(!isBookmarked);
-    } catch (error) {
-      console.error('Error toggling bookmark:', error);
-    }
+    // Bookmarks are client-side only until the backend exposes a bookmark API.
+    setIsBookmarked(!isBookmarked);
   };
 
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}/community/${postId}`;
     
     try {
-      if (navigator.share) {
+      if (typeof navigator.share === 'function') {
         await navigator.share({
-          title: post?.title,
-          text: post?.content.substring(0, 100) + '...',
-          url: shareUrl
+          title: post?.title ?? 'C++ Mastery Hub',
+          text: `${post?.content.substring(0, 100) ?? ''}...`,
+          url: shareUrl,
         });
       } else {
         await navigator.clipboard.writeText(shareUrl);
-        alert('Link copied to clipboard!');
+        toast.success('Link copied to clipboard!');
       }
     } catch (error) {
       console.error('Error sharing post:', error);
@@ -114,18 +120,18 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
   };
 
   const handleEdit = () => {
-    router.push(`/community/edit/${postId}`);
+    void router.push(`/community/edit/${postId}`);
   };
 
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this post?')) return;
+    if (!window.confirm('Are you sure you want to delete this post?')) return;
 
     try {
       await communityService.deletePost(postId);
-      router.push('/community');
+      await router.push('/community');
     } catch (error) {
       console.error('Error deleting post:', error);
-      alert('Failed to delete post');
+      toast.error('Failed to delete post');
     }
   };
 
@@ -133,10 +139,10 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
     try {
       await communityService.reportPost(postId, reason);
       setShowReportModal(false);
-      alert('Post reported successfully');
+      toast.success('Post reported successfully');
     } catch (error) {
       console.error('Error reporting post:', error);
-      alert('Failed to report post');
+      toast.error('Failed to report post');
     }
   };
 
@@ -166,13 +172,13 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
         </div>
       </Layout>
     );
   }
 
-  if (error || !post) {
+  if (error !== null || !post) {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
@@ -181,10 +187,10 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
               Post Not Found
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {error || 'The post you are looking for does not exist.'}
+              {error ?? 'The post you are looking for does not exist.'}
             </p>
             <button
-              onClick={() => router.push('/community')}
+              onClick={() => void router.push('/community')}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Back to Community
@@ -205,7 +211,7 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
           className="mb-6"
         >
           <button
-            onClick={() => router.push('/community')}
+            onClick={() => void router.push('/community')}
             className="flex items-center text-blue-600 hover:text-blue-700 transition-colors mb-4"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
@@ -225,8 +231,8 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
               {/* Post Meta */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getCategoryColor(post.category)}`}>
-                    {post.category}
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${getCategoryColor(post.category.name.toLowerCase())}`}>
+                    {post.category.name}
                   </span>
                   {post.isPinned && (
                     <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium flex items-center">
@@ -243,7 +249,7 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
 
                 {/* Action Buttons */}
                 <div className="flex items-center space-x-2">
-                  {user && user.id === post.author.id && (
+                  {user && user.id === (post.author?.id ?? post.userId) && (
                     <>
                       <button
                         onClick={handleEdit}
@@ -253,7 +259,7 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
                         <Edit className="h-5 w-5" />
                       </button>
                       <button
-                        onClick={handleDelete}
+                        onClick={() => void handleDelete()}
                         className="p-2 text-gray-400 hover:text-red-600 transition-colors"
                         title="Delete post"
                       >
@@ -279,10 +285,10 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
               {/* Author Info */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
-                  <UserAvatar user={post.author} size="md" />
+                  <UserAvatar user={post.author ?? post.user} size="md" />
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-white">
-                      {post.author.username}
+                      {post.author?.username ?? post.user.username}
                     </p>
                     <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
                       <Clock className="h-4 w-4" />
@@ -313,7 +319,8 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
 
               {/* Post Content */}
               <div className="prose dark:prose-invert max-w-none mb-6">
-                <div dangerouslySetInnerHTML={{ __html: post.content }} />
+                {/* Rendered as text: post bodies are user content and no HTML sanitizer is bundled. */}
+                <p className="whitespace-pre-wrap">{post.content}</p>
               </div>
 
               {/* Tags */}
@@ -327,7 +334,7 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
               <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-700">
                 <div className="flex items-center space-x-4">
                   <button
-                    onClick={handleLike}
+                    onClick={() => void handleLike()}
                     className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
                       isLiked
                         ? 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400'
@@ -351,7 +358,7 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
                   </button>
 
                   <button
-                    onClick={handleShare}
+                    onClick={() => void handleShare()}
                     className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
                   >
                     <Share className="h-5 w-5" />
@@ -374,12 +381,12 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
               <CommentSection
                 postId={postId}
                 comments={comments}
-                onCommentAdded={(comment) => setComments([...comments, comment])}
+                onCommentAdded={(comment) => setComments((prev) => [...prev, comment])}
                 onCommentUpdated={(commentId, updatedComment) => {
-                  setComments(comments.map(c => c.id === commentId ? updatedComment : c));
+                  setComments((prev) => prev.map((c) => (c.id === commentId ? updatedComment : c)));
                 }}
                 onCommentDeleted={(commentId) => {
-                  setComments(comments.filter(c => c.id !== commentId));
+                  setComments((prev) => prev.filter((c) => c.id !== commentId));
                 }}
               />
             </motion.div>
@@ -396,23 +403,23 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
             >
               <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Author</h3>
               <div className="text-center">
-                <UserAvatar user={post.author} size="lg" className="mx-auto mb-3" />
+                <UserAvatar user={post.author ?? post.user} size="lg" className="mx-auto mb-3" />
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
-                  {post.author.username}
+                  {post.author?.username ?? post.user.username}
                 </h4>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  {post.author.role}
+                  {post.user.role ?? 'Member'}
                 </p>
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
                     <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {post.author.stats?.forumPosts || 0}
+                      {post.user.profile?.totalPoints ?? 0}
                     </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">Posts</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">Points</p>
                   </div>
                   <div>
                     <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {post.author.stats?.reputation || 0}
+                      {post.author?.reputation ?? 0}
                     </p>
                     <p className="text-xs text-gray-600 dark:text-gray-400">Reputation</p>
                   </div>
@@ -450,7 +457,7 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
                   {['Spam', 'Inappropriate Content', 'Harassment', 'Copyright Violation', 'Other'].map((reason) => (
                     <button
                       key={reason}
-                      onClick={() => handleReport(reason)}
+                      onClick={() => void handleReport(reason)}
                       className="w-full text-left px-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     >
                       {reason}
@@ -474,14 +481,12 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
   );
 };
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { postId } = context.params!;
-  
-  return {
-    props: {
-      postId: postId as string,
-    },
-  };
+export const getServerSideProps: GetServerSideProps<PostPageProps> = (context) => {
+  const postId = context.params?.postId;
+
+  return Promise.resolve(
+    typeof postId === 'string' ? { props: { postId } } : { notFound: true as const }
+  );
 };
 
 export default PostPage;

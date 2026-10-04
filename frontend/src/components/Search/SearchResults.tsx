@@ -1,4 +1,5 @@
 import React from 'react';
+
 import { Badge } from '../UI/Badge';
 import { Loading } from '../UI/Loading';
 
@@ -26,11 +27,11 @@ interface SearchResultsProps {
   results: SearchResult[];
   loading: boolean;
   query: string;
-  totalCount?: number;
+  totalCount?: number | undefined;
   onResultClick: (result: SearchResult) => void;
-  onLoadMore?: () => void;
-  hasMore?: boolean;
-  viewMode?: 'list' | 'grid';
+  onLoadMore?: () => void | undefined;
+  hasMore?: boolean | undefined;
+  viewMode?: 'list' | 'grid' | undefined;
 }
 
 export const SearchResults: React.FC<SearchResultsProps> = ({
@@ -49,38 +50,74 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
     switch (type) {
       case 'course':
         return (
-          <svg className={`${iconClass} text-blue-600`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          <svg
+            className={`${iconClass} text-blue-600`} fill="none" stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+            />
           </svg>
         );
       case 'lesson':
         return (
-          <svg className={`${iconClass} text-green-600`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <svg
+            className={`${iconClass} text-green-600`} fill="none" stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+            />
           </svg>
         );
       case 'code':
         return (
-          <svg className={`${iconClass} text-purple-600`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          <svg
+            className={`${iconClass} text-purple-600`} fill="none" stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
+            />
           </svg>
         );
       case 'forum':
         return (
-          <svg className={`${iconClass} text-orange-600`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-6a2 2 0 012-2h8z" />
+          <svg
+            className={`${iconClass} text-orange-600`} fill="none" stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a2 2 0 01-2-2v-6a2 2 0 012-2h8z"
+            />
           </svg>
         );
       case 'user':
         return (
-          <svg className={`${iconClass} text-indigo-600`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          <svg
+            className={`${iconClass} text-indigo-600`} fill="none" stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+            />
           </svg>
         );
       default:
         return (
-          <svg className={`${iconClass} text-gray-600`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17v4a2 2 0 002 2h4M15 7l-3 3" />
+          <svg
+            className={`${iconClass} text-gray-600`} fill="none" stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17v4a2 2 0 002 2h4M15 7l-3 3"
+            />
           </svg>
         );
     }
@@ -144,8 +181,14 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
               <div className="flex items-center space-x-4 text-sm text-gray-500">
                 {result.category && (
                   <span className="flex items-center">
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    <svg
+                      className="w-4 h-4 mr-1" fill="none" stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+                      />
                     </svg>
                     {result.category}
                   </span>
@@ -153,8 +196,14 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
                 
                 {result.metadata?.author && (
                   <span className="flex items-center">
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    <svg
+                      className="w-4 h-4 mr-1" fill="none" stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                      />
                     </svg>
                     {result.metadata.author}
                   </span>
@@ -162,8 +211,14 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
 
                 {result.metadata?.lastUpdated && (
                   <span className="flex items-center">
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <svg
+                      className="w-4 h-4 mr-1" fill="none" stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
                     </svg>
                     {formatDate(result.metadata.lastUpdated)}
                   </span>
@@ -171,8 +226,14 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
 
                 {result.metadata?.duration && (
                   <span className="flex items-center">
-                    <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    <svg
+                      className="w-4 h-4 mr-1" fill="none" stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                      />
                     </svg>
                     {result.metadata.duration}
                   </span>
@@ -272,12 +333,18 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
   if (!loading && results.length === 0 && query) {
     return (
       <div className="text-center py-12">
-        <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        <svg
+          className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          />
         </svg>
         <h3 className="text-lg font-medium text-gray-900 mb-2">No results found</h3>
         <p className="text-gray-600">
-          We couldn't find anything matching "<strong>{query}</strong>".
+          We couldn&apos;t find anything matching &quot;<strong>{query}</strong>&quot;.
         </p>
         <p className="text-gray-600 mt-1">
           Try adjusting your search terms or using different keywords.
@@ -294,22 +361,24 @@ export const SearchResults: React.FC<SearchResultsProps> = ({
           <p className="text-sm text-gray-600">
             {totalCount > 0 ? (
               <>
-                Showing {results.length} of {totalCount} results for "
-                <strong>{query}</strong>"
+                Showing {results.length} of {totalCount} results for &quot;
+                <strong>{query}</strong>&quot;
               </>
             ) : (
-              <>No results found for "<strong>{query}</strong>"</>
+              <>No results found for &quot;<strong>{query}</strong>&quot;</>
             )}
           </p>
         </div>
       )}
 
       {/* Results List */}
-      <div className={
+      <div
+        className={
         viewMode === 'grid' 
           ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
           : "space-y-4"
-      }>
+      }
+      >
         {results.map(result => 
           viewMode === 'grid' 
             ? renderGridItem(result)

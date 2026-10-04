@@ -81,8 +81,8 @@ export function formatNumber(num: number): string {
 /**
  * Format a number as a percentage
  */
-export function formatPercentage(num: number, decimals: number = 1): string {
-  return (num * 100).toFixed(decimals) + '%';
+export function formatPercentage(num: number, decimals = 1): string {
+  return `${(num * 100).toFixed(decimals)}%`;
 }
 
 /**
@@ -134,6 +134,13 @@ export function formatExecutionTime(ms: number): string {
 /**
  * Format memory size in bytes to human-readable format
  */
+export function formatFileSize(bytes: number): string {
+  if (bytes <= 0) return '0 Bytes';
+  const units = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${parseFloat((bytes / Math.pow(1024, i)).toFixed(2))} ${units[i] ?? 'Bytes'}`;
+}
+
 export function formatMemorySize(bytes: number): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let size = bytes;
@@ -209,7 +216,7 @@ export function formatProgress(current: number, total: number): string {
 /**
  * Format score with appropriate precision
  */
-export function formatScore(score: number, maxScore: number = 100): string {
+export function formatScore(score: number, maxScore = 100): string {
   const percentage = (score / maxScore) * 100;
   return `${percentage.toFixed(1)}%`;
 }
@@ -219,7 +226,7 @@ export function formatScore(score: number, maxScore: number = 100): string {
  */
 export function formatDifficulty(level: number): string {
   const difficulties = ['Beginner', 'Easy', 'Medium', 'Hard', 'Expert'];
-  return difficulties[Math.min(level - 1, difficulties.length - 1)] || 'Unknown';
+  return difficulties[Math.min(level - 1, difficulties.length - 1)] ?? 'Unknown';
 }
 
 /**
@@ -243,7 +250,7 @@ export function formatLanguage(language: string): string {
     'go': 'Go'
   };
 
-  return languageMap[language.toLowerCase()] || language;
+  return languageMap[language.toLowerCase()] ?? language;
 }
 
 /**
@@ -260,7 +267,7 @@ export function formatUserStatus(status: string): string {
     'admin': 'Administrator'
   };
 
-  return statusMap[status] || status;
+  return statusMap[status] ?? status;
 }
 
 /**
@@ -278,16 +285,16 @@ export function formatNotificationType(type: string): string {
     'new_lesson': 'New Lesson'
   };
 
-  return typeMap[type] || type;
+  return typeMap[type] ?? type;
 }
 
 /**
  * Format currency amount
  */
-export function formatCurrency(amount: number, currency: string = 'USD'): string {
+export function formatCurrency(amount: number, currency = 'USD'): string {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: currency
+    currency
   }).format(amount);
 }
 
@@ -319,7 +326,7 @@ export function formatFileExtension(filename: string): string {
     'yml': 'YAML'
   };
 
-  return extensionMap[extension] || extension.toUpperCase();
+  return extensionMap[extension] ?? extension.toUpperCase();
 }
 
 /**
@@ -327,23 +334,26 @@ export function formatFileExtension(filename: string): string {
  */
 export function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
-  return text.slice(0, maxLength - 3) + '...';
+  return `${text.slice(0, maxLength - 3)}...`;
 }
 
 /**
  * Format plural forms
  */
 export function pluralize(count: number, singular: string, plural?: string): string {
-  const pluralForm = plural || singular + 's';
+  const pluralForm = plural ?? `${singular}s`;
   return count === 1 ? singular : pluralForm;
 }
 
 /**
  * Format error messages for display
  */
-export function formatErrorMessage(error: any): string {
+export function formatErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error;
-  if (error?.message) return error.message;
-  if (error?.error) return error.error;
+  if (error && typeof error === 'object') {
+    const { message, error: inner } = error as { message?: unknown; error?: unknown };
+    if (typeof message === 'string' && message) return message;
+    if (typeof inner === 'string' && inner) return inner;
+  }
   return 'An unexpected error occurred';
 }

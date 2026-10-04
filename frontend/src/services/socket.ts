@@ -24,7 +24,7 @@ export class SocketService {
   private eventHandlers: Map<string, Set<SocketEventHandler>> = new Map();
   private reconnectCount = 0;
   private heartbeatTimer: NodeJS.Timeout | null = null;
-  private isConnecting = false;
+  private connecting = false;
   private isDestroyed = false;
   private messageQueue: SocketMessage[] = [];
 
@@ -51,20 +51,20 @@ export class SocketService {
         return;
       }
 
-      if (this.isConnecting) {
+      if (this.connecting) {
         this.once('connected', resolve);
         this.once('error', reject);
         return;
       }
 
-      this.isConnecting = true;
+      this.connecting = true;
       this.log('Connecting to WebSocket...');
 
       try {
         this.socket = new WebSocket(this.config.url, this.config.protocols);
         this.setupEventListeners(resolve, reject);
       } catch (error) {
-        this.isConnecting = false;
+        this.connecting = false;
         reject(error);
       }
     });
@@ -82,7 +82,7 @@ export class SocketService {
     
     this.messageQueue = [];
     this.reconnectCount = 0;
-    this.isConnecting = false;
+    this.connecting = false;
   }
 
   // Event handling
@@ -127,7 +127,7 @@ export class SocketService {
     if (!this.isConnected()) {
       this.log('Socket not connected, queueing message:', message);
       this.messageQueue.push(message);
-      this.connect(); // Try to reconnect
+      void this.connect(); // Try to reconnect
       return false;
     }
 
@@ -183,7 +183,7 @@ export class SocketService {
   }
 
   isConnecting(): boolean {
-    return this.isConnecting;
+    return this.connecting;
   }
 
   getReadyState(): number | null {
@@ -196,7 +196,7 @@ export class SocketService {
 
     this.socket.onopen = (event) => {
       this.log('WebSocket connected');
-      this.isConnecting = false;
+      this.connecting = false;
       this.reconnectCount = 0;
       
       // Send auth token if available
@@ -217,7 +217,7 @@ export class SocketService {
 
     this.socket.onclose = (event) => {
       this.log('WebSocket closed:', event.code, event.reason);
-      this.isConnecting = false;
+      this.connecting = false;
       this.stopHeartbeat();
       
       this.emit('disconnected', { code: event.code, reason: event.reason });
@@ -230,7 +230,7 @@ export class SocketService {
 
     this.socket.onerror = (event) => {
       console.error('WebSocket error:', event);
-      this.isConnecting = false;
+      this.connecting = false;
       this.emit('error', event);
       reject(new Error('WebSocket connection failed'));
     };
@@ -340,7 +340,7 @@ export class SocketService {
       this.socket.close();
     }
     this.reconnectCount = 0;
-    this.connect();
+    void this.connect();
   }
 
   private generateMessageId(): string {

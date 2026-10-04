@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
+import React, { useEffect, useState } from 'react';
+
 import { Loading } from '../UI/Loading';
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  fallback?: React.ReactNode;
-  requireAuth?: boolean;
-  requireAdmin?: boolean;
-  redirectTo?: string;
+  fallback?: React.ReactNode | undefined;
+  requireAuth?: boolean | undefined;
+  requireAdmin?: boolean | undefined;
+  redirectTo?: string | undefined;
 }
 
 interface User {
@@ -58,7 +59,7 @@ const useAuth = () => {
       }
     };
 
-    checkAuth();
+    void checkAuth();
   }, []);
 
   return authState;
@@ -82,14 +83,14 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     if (requireAuth && !user) {
       setHasRedirected(true);
       const returnUrl = encodeURIComponent(router.asPath);
-      router.replace(`${redirectTo}?returnUrl=${returnUrl}`);
+      void router.replace(`${redirectTo}?returnUrl=${returnUrl}`);
       return;
     }
 
     // If admin is required but user is not admin
     if (requireAdmin && user && user.role !== 'admin') {
       setHasRedirected(true);
-      router.replace('/unauthorized');
+      void router.replace('/unauthorized');
       return;
     }
 
@@ -97,14 +98,14 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     if (!requireAuth && user && router.pathname.startsWith('/auth')) {
       setHasRedirected(true);
       const returnUrl = router.query.returnUrl as string;
-      router.replace(returnUrl || '/dashboard');
+      void router.replace(returnUrl || '/dashboard');
       return;
     }
   }, [user, loading, requireAuth, requireAdmin, router, redirectTo, hasRedirected]);
 
   // Show loading while checking auth
   if (loading) {
-    return fallback || <Loading />;
+    return fallback ?? <Loading />;
   }
 
   // Show error if auth check failed
@@ -153,7 +154,7 @@ export const withAuthGuard = <P extends object>(
   );
 
   AuthGuardedComponent.displayName = `withAuthGuard(${
-    Component.displayName || Component.name
+    Component.displayName ?? Component.name
   })`;
 
   return AuthGuardedComponent;

@@ -1,15 +1,14 @@
-import React, { useState } from 'react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
-import { Mail, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Mail, ArrowLeft, AlertCircle, CheckCircle } from 'lucide-react';
+import Link from 'next/link';
+import React, { useState } from 'react';
+
 import Layout from '../../components/Layout/Layout';
 import { authService } from '../../services/api';
 
 interface ForgotPasswordPageProps {}
 
 const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = () => {
-  const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -79,13 +78,13 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = () => {
                   Check Your Email
                 </h2>
                 <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  We've sent a password reset link to{' '}
+                  We&apos;ve sent a password reset link to{' '}
                   <span className="font-medium text-gray-900 dark:text-white">{email}</span>
                 </p>
                 
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    Didn't receive the email? Check your spam folder or try resending.
+                    Didn&apos;t receive the email? Check your spam folder or try resending.
                   </p>
                 </div>
 
@@ -97,7 +96,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = () => {
                     className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     {loading ? (
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
                     ) : (
                       'Resend Email'
                     )}
@@ -134,7 +133,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = () => {
               Forgot Password?
             </h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-              No worries! Enter your email and we'll send you a reset link.
+              No worries! Enter your email and we&apos;ll send you a reset link.
             </p>
           </motion.div>
         </div>
@@ -203,7 +202,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = () => {
                   className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {loading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
                   ) : (
                     'Send Reset Link'
                   )}
@@ -234,7 +233,7 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = () => {
                   </Link>
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                  Don't have an account?{' '}
+                  Don&apos;t have an account?{' '}
                   <Link href="/auth/register">
                     <span className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer">
                       Sign up for free
@@ -258,10 +257,10 @@ const ForgotPasswordPage: React.FC<ForgotPasswordPageProps> = () => {
               What happens next?
             </h3>
             <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-              <li>• We'll send a secure link to your email</li>
+              <li>• We&apos;ll send a secure link to your email</li>
               <li>• Click the link to create a new password</li>
               <li>• The link expires in 1 hour for security</li>
-              <li>• Check your spam folder if you don't see it</li>
+              <li>• Check your spam folder if you don&apos;t see it</li>
             </ul>
           </div>
         </motion.div>

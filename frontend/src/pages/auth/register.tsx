@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
-import { Eye, EyeOff, Mail, Lock, User, Github, AlertCircle, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Eye, EyeOff, Mail, Lock, User, Github, AlertCircle, CheckCircle } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import React, { useState, useEffect } from 'react';
+
 import Layout from '../../components/Layout/Layout';
 import { useAuth } from '../../hooks/useAuth';
-import { authService } from '../../services/api';
 
 interface RegisterPageProps {}
 
 const RegisterPage: React.FC<RegisterPageProps> = () => {
   const router = useRouter();
-  const { login, isAuthenticated } = useAuth();
+  const { register, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -31,7 +31,7 @@ const RegisterPage: React.FC<RegisterPageProps> = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      router.push('/learn');
+      void router.push('/learn');
     }
   }, [isAuthenticated, router]);
 
@@ -157,20 +157,14 @@ const RegisterPage: React.FC<RegisterPageProps> = () => {
     setError('');
 
     try {
-      const response = await authService.register({
+      await register({
         username: formData.username.trim(),
         email: formData.email.trim(),
-        password: formData.password
+        password: formData.password,
       });
 
-      // Store auth token
-      sessionStorage.setItem('authToken', response.data.token);
-
-      // Update auth context
-      await login(response.data.user, response.data.token);
-
       // Redirect to onboarding or dashboard
-      router.push('/onboarding');
+      void router.push('/onboarding');
     } catch (error: any) {
       setError(error.response?.data?.message || 'Registration failed. Please try again.');
     } finally {
@@ -178,14 +172,14 @@ const RegisterPage: React.FC<RegisterPageProps> = () => {
     }
   };
 
-  const handleGoogleRegister = async () => {
-    try {
-      setLoading(true);
-      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/github?action=register`;
-    } catch (error) {
-      setError('GitHub registration failed. Please try again.');
-      setLoading(false);
-    }
+  const handleGoogleRegister = () => {
+    setLoading(true);
+    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google?action=register`;
+  };
+
+  const handleGithubRegister = () => {
+    setLoading(true);
+    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/github?action=register`;
   };
 
   const isFormValid = formData.username && formData.email && formData.password && 
@@ -317,10 +311,12 @@ const RegisterPage: React.FC<RegisterPageProps> = () => {
                   <div className="mt-2">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm text-gray-600 dark:text-gray-400">Password strength:</span>
-                      <span className={`text-sm font-medium ${
+                      <span
+                        className={`text-sm font-medium ${
                         passwordStrength.score <= 2 ? 'text-red-600' : 
                         passwordStrength.score <= 3 ? 'text-yellow-600' : 'text-green-600'
-                      }`}>
+                      }`}
+                      >
                         {getPasswordStrengthText(passwordStrength.score)}
                       </span>
                     </div>
@@ -328,7 +324,7 @@ const RegisterPage: React.FC<RegisterPageProps> = () => {
                       <div
                         className={`h-2 rounded-full transition-all duration-300 ${getPasswordStrengthColor(passwordStrength.score)}`}
                         style={{ width: `${(passwordStrength.score / 5) * 100}%` }}
-                      ></div>
+                      />
                     </div>
                     {passwordStrength.feedback.length > 0 && (
                       <div className="mt-2">
@@ -336,7 +332,7 @@ const RegisterPage: React.FC<RegisterPageProps> = () => {
                         <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
                           {passwordStrength.feedback.map((item, index) => (
                             <li key={index} className="flex items-center">
-                              <span className="w-1 h-1 bg-gray-400 rounded-full mr-2"></span>
+                              <span className="w-1 h-1 bg-gray-400 rounded-full mr-2" />
                               {item}
                             </li>
                           ))}
@@ -432,7 +428,7 @@ const RegisterPage: React.FC<RegisterPageProps> = () => {
                   className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {loading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
                   ) : (
                     'Create Account'
                   )}
@@ -510,14 +506,4 @@ const RegisterPage: React.FC<RegisterPageProps> = () => {
   );
 };
 
-export default RegisterPage;href = `${process.env.NEXT_PUBLIC_API_URL}/auth/google?action=register`;
-    } catch (error) {
-      setError('Google registration failed. Please try again.');
-      setLoading(false);
-    }
-  };
-
-  const handleGithubRegister = async () => {
-    try {
-      setLoading(true);
-      window.location.
+export default RegisterPage;

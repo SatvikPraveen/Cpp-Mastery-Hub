@@ -1,9 +1,16 @@
+import Link from 'next/link';
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+
+declare global {
+  interface Window {
+    Sentry?: { captureException: (error: unknown, context?: unknown) => void };
+  }
+}
 
 interface Props {
   children: ReactNode;
-  fallback?: ReactNode;
-  onError?: (error: Error, errorInfo: ErrorInfo) => void;
+  fallback?: ReactNode | undefined;
+  onError?: ((error: Error, errorInfo: ErrorInfo) => void) | undefined;
 }
 
 interface State {
@@ -22,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error, errorInfo: null };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.setState({ error, errorInfo });
     
     // Log error to monitoring service
@@ -34,7 +41,7 @@ export class ErrorBoundary extends Component<Props, State> {
     }
 
     // Report to error tracking service (e.g., Sentry)
-    if (typeof window !== 'undefined' && window.Sentry) {
+    if (window?.Sentry) {
       window.Sentry.captureException(error, {
         contexts: {
           react: {
@@ -53,7 +60,7 @@ export class ErrorBoundary extends Component<Props, State> {
     window.location.reload();
   };
 
-  public render() {
+  public override render() {
     if (this.state.hasError) {
       // Custom fallback UI
       if (this.props.fallback) {
@@ -85,7 +92,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </h1>
             
             <p className="text-gray-600 text-center mb-6">
-              We're sorry, but something unexpected happened. Please try again.
+              We&apos;re sorry, but something unexpected happened. Please try again.
             </p>
 
             {/* Error details in development */}
@@ -121,12 +128,9 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
 
             <div className="mt-4 text-center">
-              <a
-                href="/"
-                className="text-sm text-blue-600 hover:underline"
-              >
+              <Link href="/" className="text-sm text-blue-600 hover:underline">
                 Go to Homepage
-              </a>
+              </Link>
             </div>
           </div>
         </div>
@@ -143,7 +147,7 @@ export const useErrorHandler = () => {
     console.error('Error caught by useErrorHandler:', error, errorInfo);
     
     // Report to error tracking service
-    if (typeof window !== 'undefined' && window.Sentry) {
+    if (window?.Sentry) {
       window.Sentry.captureException(error);
     }
   };
@@ -152,7 +156,7 @@ export const useErrorHandler = () => {
 // HOC for adding error boundary to components
 export const withErrorBoundary = <P extends object>(
   Component: React.ComponentType<P>,
-  fallback?: ReactNode
+  fallback?: ReactNode | undefined
 ) => {
   const WrappedComponent = (props: P) => (
     <ErrorBoundary fallback={fallback}>
@@ -161,7 +165,7 @@ export const withErrorBoundary = <P extends object>(
   );
 
   WrappedComponent.displayName = `withErrorBoundary(${
-    Component.displayName || Component.name
+    Component.displayName ?? Component.name
   })`;
 
   return WrappedComponent;
@@ -175,14 +179,14 @@ export const PageErrorBoundary: React.FC<{ children: ReactNode }> = ({ children 
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Page Error</h1>
           <p className="text-gray-600 mb-4">
-            This page encountered an error and couldn't be displayed.
+            This page encountered an error and couldn&apos;t be displayed.
           </p>
-          <a
+          <Link
             href="/"
             className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
             Go Home
-          </a>
+          </Link>
         </div>
       </div>
     }
@@ -211,7 +215,7 @@ export const setupGlobalErrorHandling = () => {
   window.addEventListener('unhandledrejection', (event) => {
     console.error('Unhandled promise rejection:', event.reason);
     
-    if (typeof window !== 'undefined' && window.Sentry) {
+    if (window?.Sentry) {
       window.Sentry.captureException(event.reason);
     }
   });
@@ -220,8 +224,9 @@ export const setupGlobalErrorHandling = () => {
   window.addEventListener('error', (event) => {
     console.error('Global error:', event.error);
     
-    if (typeof window !== 'undefined' && window.Sentry) {
+    if (window?.Sentry) {
       window.Sentry.captureException(event.error);
     }
   });
 };
+export default ErrorBoundary;

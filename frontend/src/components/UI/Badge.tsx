@@ -13,13 +13,13 @@ export type BadgeSize = 'sm' | 'md' | 'lg';
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: BadgeVariant;
-  size?: BadgeSize;
-  className?: string;
-  removable?: boolean;
-  onRemove?: () => void;
-  icon?: React.ReactNode;
-  dot?: boolean;
+  variant?: BadgeVariant | undefined;
+  size?: BadgeSize | undefined;
+  className?: string | undefined;
+  removable?: boolean | undefined;
+  onRemove?: (() => void) | undefined;
+  icon?: React.ReactNode | undefined;
+  dot?: boolean | undefined;
 }
 
 export const Badge: React.FC<BadgeProps> = ({
@@ -101,8 +101,14 @@ export const Badge: React.FC<BadgeProps> = ({
           className="ml-1 hover:bg-black hover:bg-opacity-10 rounded-full p-0.5 transition-colors"
           aria-label="Remove badge"
         >
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          <svg
+            className="w-3 h-3" fill="none" stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M6 18L18 6M6 6l12 12"
+            />
           </svg>
         </button>
       )}
@@ -127,7 +133,7 @@ export const StatusBadge: React.FC<{
 
   return (
     <Badge variant={config.variant} dot={config.dot}>
-      {children || config.text}
+      {children ?? config.text}
     </Badge>
   );
 };
@@ -148,7 +154,7 @@ export const SkillBadge: React.FC<{
 
   return (
     <Badge
-      variant={config?.variant || 'default'}
+      variant={config?.variant ?? 'default'}
       removable={removable}
       onRemove={onRemove}
       icon={config && <span>{config.icon}</span>}

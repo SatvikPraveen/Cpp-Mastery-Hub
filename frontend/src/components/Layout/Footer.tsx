@@ -1,3 +1,7 @@
+import { Code } from 'lucide-react';
+import Link from 'next/link';
+import React from 'react';
+
 export const Footer: React.FC = () => {
   return (
     <footer className="bg-background border-t border-border py-8 px-6">
@@ -65,3 +69,5 @@ export const Footer: React.FC = () => {
     </footer>
   );
 };
+
+export default Footer;

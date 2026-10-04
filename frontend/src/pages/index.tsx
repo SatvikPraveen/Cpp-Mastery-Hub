@@ -1,6 +1,3 @@
-import React from 'react';
-import Head from 'next/head';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Code,
@@ -8,18 +5,20 @@ import {
   Users,
   Zap,
   Star,
-  ChevronRight,
   Play,
   Award,
   Gauge,
   Eye,
-  CheckCircle,
   ArrowRight,
 } from 'lucide-react';
+import Head from 'next/head';
+import Link from 'next/link';
+import React from 'react';
+
 import { useAuth } from '@/hooks/useAuth';
 
 const HomePage: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   const features = [
     {
@@ -213,9 +212,9 @@ const HomePage: React.FC = () => {
               >
                 <div className="bg-gray-900 rounded-lg shadow-2xl overflow-hidden">
                   <div className="bg-gray-800 px-4 py-2 flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-red-500 rounded-full" />
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full" />
+                    <div className="w-3 h-3 bg-green-500 rounded-full" />
                     <span className="ml-4 text-gray-400 text-sm">main.cpp</span>
                   </div>
                   <div className="p-4 font-mono text-sm">
@@ -225,7 +224,7 @@ const HomePage: React.FC = () => {
                     <br />
                     <div className="text-purple-400">int</div>{' '}
                     <div className="text-yellow-400 inline">main</div>
-                    <div className="text-white inline">() {</div>
+                    <div className="text-white inline">() {'{'}</div>
                     <br />
                     <div className="ml-4 text-gray-300">
                       <div className="text-purple-400 inline">auto</div>{' '}
@@ -235,13 +234,13 @@ const HomePage: React.FC = () => {
                     </div>
                     <div className="ml-4 text-white">
                       std::<div className="text-yellow-400 inline">cout</div> &lt;&lt;{' '}
-                      <div className="text-green-400 inline">"Value: "</div> &lt;&lt; *ptr;
+                      <div className="text-green-400 inline">&quot;Value: &quot;</div> &lt;&lt; *ptr;
                     </div>
                     <div className="ml-4 text-purple-400">return</div>{' '}
                     <div className="text-orange-400 inline">0</div>
                     <div className="text-white inline">;</div>
                     <br />
-                    <div className="text-white">}</div>
+                    <div className="text-white">{'}'}</div>
                   </div>
                 </div>
                 
@@ -345,7 +344,7 @@ const HomePage: React.FC = () => {
                     ))}
                   </div>
                   <p className="text-gray-700 dark:text-gray-300 mb-6 italic">
-                    "{testimonial.content}"
+                    &quot;{testimonial.content}&quot;
                   </p>
                   <div className="flex items-center">
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">

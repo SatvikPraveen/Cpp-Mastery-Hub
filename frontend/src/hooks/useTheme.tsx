@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useContext, createContext } from 'react';
+
 import { storageService } from '../services/storage';
 
 export type Theme = 'light' | 'dark' | 'system';
@@ -164,7 +165,7 @@ export const useThemeStyles = () => {
     return actualTheme === 'dark' ? darkClass : lightClass;
   }, [actualTheme]);
 
-  const getThemeValue = useCallback(<T>(lightValue: T, darkValue: T): T => {
+  const getThemeValue = useCallback(<T,>(lightValue: T, darkValue: T): T => {
     return actualTheme === 'dark' ? darkValue : lightValue;
   }, [actualTheme]);
 
@@ -213,7 +214,7 @@ export const useSystemTheme = (): 'light' | 'dark' => {
 };
 
 // Hook for theme transitions
-export const useThemeTransition = (duration: number = 150) => {
+export const useThemeTransition = (duration = 150) => {
   const { actualTheme } = useTheme();
   const [isTransitioning, setIsTransitioning] = useState(false);
 
@@ -308,28 +309,18 @@ export const useThemeClasses = () => {
 
 // Hook for theme persistence
 export const useThemePersistence = () => {
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
 
-  const saveThemeToServer = useCallback(async (newTheme: Theme) => {
-    try {
-      // In a real app, you would save to your API
-      // await userService.updatePreferences({ theme: newTheme });
-      console.log('Theme saved to server:', newTheme);
-    } catch (error) {
-      console.error('Failed to save theme to server:', error);
+  // Placeholders until a preferences endpoint exists; kept synchronous on purpose.
+  const saveThemeToServer = useCallback((newTheme: Theme) => {
+    // e.g. await userService.updatePreferences({ theme: newTheme });
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('Theme preference changed:', newTheme);
     }
   }, []);
 
-  const loadThemeFromServer = useCallback(async () => {
-    try {
-      // In a real app, you would load from your API
-      // const preferences = await userService.getPreferences();
-      // setTheme(preferences.theme);
-      console.log('Theme loaded from server');
-    } catch (error) {
-      console.error('Failed to load theme from server:', error);
-    }
-  }, [setTheme]);
+  // Until server-side preferences exist, the locally persisted theme is authoritative.
+  const loadThemeFromServer = useCallback((): Theme => theme, [theme]);
 
   useEffect(() => {
     saveThemeToServer(theme);

@@ -1,17 +1,18 @@
 import { 
   Play, 
   Square, 
-  Download, 
   Upload, 
   Save, 
   Share2, 
   Settings,
   Maximize2,
   Minimize2,
-  RotateCcw,
   FileText,
   Bug
 } from 'lucide-react';
+import React from 'react';
+
+import { Button } from '@/components/UI/Button';
 
 interface ToolBarProps {
   onRun: () => void;

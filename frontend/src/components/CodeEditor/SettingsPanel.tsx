@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
-import { Button } from '@/components/UI/Button';
-import { Input } from '@/components/UI/Input';
 import { 
   Settings, 
   Palette, 
   Type, 
-  Grid, 
   Eye,
   Save,
   RotateCcw
 } from 'lucide-react';
+import React, { useState } from 'react';
 
-interface EditorSettings {
+import { Button } from '@/components/UI/Button';
+import { Input } from '@/components/UI/Input';
+
+export interface EditorSettings {
   theme: 'vs-dark' | 'vs-light' | 'hc-black';
   fontSize: number;
   tabSize: number;
@@ -232,3 +232,4 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
   );
 };
 
+export default SettingsPanel;

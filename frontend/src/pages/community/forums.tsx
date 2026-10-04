@@ -1,19 +1,92 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { Search, MessageSquare, Users, Pin, Clock, TrendingUp, Filter, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Layout from '../../components/Layout/Layout';
+import { Search, MessageSquare, Pin, Clock, TrendingUp, Filter, Plus } from 'lucide-react';
+import { useRouter } from 'next/router';
+import React, { useState, useEffect } from 'react';
+
 import PostCard from '../../components/Community/PostCard';
+import Layout from '../../components/Layout/Layout';
 import { useAuth } from '../../hooks/useAuth';
 import { communityService } from '../../services/api';
-import { ForumCategory, ForumPost } from '../../types';
+import type { ForumCategory, ForumPost } from '../../types';
 
-interface ForumPageProps {}
+type CategoryOption = Pick<ForumCategory, 'id' | 'name' | 'description' | 'color'> & {
+  icon: string;
+  postCount: number;
+  recentActivity: string;
+};
+
+const defaultCategories: CategoryOption[] = [
+  {
+    id: 'all',
+    name: 'All Categories',
+    description: 'View all forum posts',
+    icon: '💬',
+    color: 'blue',
+    postCount: 0,
+    recentActivity: new Date().toISOString(),
+  },
+  {
+    id: 'questions',
+    name: 'Questions & Help',
+    description: 'Ask questions and get help from the community',
+    icon: '❓',
+    color: 'green',
+    postCount: 0,
+    recentActivity: new Date().toISOString(),
+  },
+  {
+    id: 'tutorials',
+    name: 'Tutorials & Guides',
+    description: 'Share and discover learning resources',
+    icon: '📚',
+    color: 'purple',
+    postCount: 0,
+    recentActivity: new Date().toISOString(),
+  },
+  {
+    id: 'projects',
+    name: 'Show & Tell',
+    description: 'Share your projects and get feedback',
+    icon: '🚀',
+    color: 'orange',
+    postCount: 0,
+    recentActivity: new Date().toISOString(),
+  },
+  {
+    id: 'discussions',
+    name: 'General Discussion',
+    description: 'General C++ and programming discussions',
+    icon: '💭',
+    color: 'indigo',
+    postCount: 0,
+    recentActivity: new Date().toISOString(),
+  },
+  {
+    id: 'jobs',
+    name: 'Jobs & Career',
+    description: 'Job opportunities and career advice',
+    icon: '💼',
+    color: 'yellow',
+    postCount: 0,
+    recentActivity: new Date().toISOString(),
+  },
+  {
+    id: 'announcements',
+    name: 'Announcements',
+    description: 'Official announcements and updates',
+    icon: '📢',
+    color: 'red',
+    postCount: 0,
+    recentActivity: new Date().toISOString(),
+  }
+];
+
+type ForumPageProps = Record<string, never>;
 
 const ForumPage: React.FC<ForumPageProps> = () => {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
-  const [categories, setCategories] = useState<ForumCategory[]>([]);
+  const { isAuthenticated } = useAuth();
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [posts, setPosts] = useState<ForumPost[]>([]);
   const [pinnedPosts, setPinnedPosts] = useState<ForumPost[]>([]);
@@ -29,122 +102,62 @@ const ForumPage: React.FC<ForumPageProps> = () => {
     { id: 'unanswered', name: 'Unanswered', icon: MessageSquare }
   ];
 
-  const defaultCategories: ForumCategory[] = [
-    {
-      id: 'all',
-      name: 'All Categories',
-      description: 'View all forum posts',
-      icon: '💬',
-      color: 'blue',
-      postCount: 0,
-      recentActivity: new Date()
-    },
-    {
-      id: 'questions',
-      name: 'Questions & Help',
-      description: 'Ask questions and get help from the community',
-      icon: '❓',
-      color: 'green',
-      postCount: 0,
-      recentActivity: new Date()
-    },
-    {
-      id: 'tutorials',
-      name: 'Tutorials & Guides',
-      description: 'Share and discover learning resources',
-      icon: '📚',
-      color: 'purple',
-      postCount: 0,
-      recentActivity: new Date()
-    },
-    {
-      id: 'projects',
-      name: 'Show & Tell',
-      description: 'Share your projects and get feedback',
-      icon: '🚀',
-      color: 'orange',
-      postCount: 0,
-      recentActivity: new Date()
-    },
-    {
-      id: 'discussions',
-      name: 'General Discussion',
-      description: 'General C++ and programming discussions',
-      icon: '💭',
-      color: 'indigo',
-      postCount: 0,
-      recentActivity: new Date()
-    },
-    {
-      id: 'jobs',
-      name: 'Jobs & Career',
-      description: 'Job opportunities and career advice',
-      icon: '💼',
-      color: 'yellow',
-      postCount: 0,
-      recentActivity: new Date()
-    },
-    {
-      id: 'announcements',
-      name: 'Announcements',
-      description: 'Official announcements and updates',
-      icon: '📢',
-      color: 'red',
-      postCount: 0,
-      recentActivity: new Date()
-    }
-  ];
 
   useEffect(() => {
-    fetchForumData();
+    const fetchForumData = async () => {
+      try {
+        setLoading(true);
+        const [postsResponse, pinnedResponse] = await Promise.all([
+          communityService.getPosts({
+            category: selectedCategory === 'all' ? undefined : selectedCategory,
+            sort: sortBy,
+          }),
+          communityService.getPosts({ pinned: true }),
+        ]);
+
+        const fetchedPosts = postsResponse.data as ForumPost[];
+        setPosts(fetchedPosts);
+        setPinnedPosts(pinnedResponse.data as ForumPost[]);
+
+        // Derive per-category counts from the fetched page until the API provides them.
+        setCategories(
+          defaultCategories.map((cat) => ({
+            ...cat,
+            postCount:
+              cat.id === 'all'
+                ? fetchedPosts.length
+                : fetchedPosts.filter((p) => p.categoryId === cat.id).length,
+          }))
+        );
+      } catch (error) {
+        console.error('Error fetching forum data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchForumData();
   }, [selectedCategory, sortBy]);
 
-  useEffect(() => {
-    filterPosts();
-  }, [searchQuery]);
-
-  const fetchForumData = async () => {
-    try {
-      setLoading(true);
-      const [postsResponse, pinnedResponse] = await Promise.all([
-        communityService.getPosts({ 
-          category: selectedCategory === 'all' ? undefined : selectedCategory, 
-          sort: sortBy 
-        }),
-        communityService.getPosts({ pinned: true })
-      ]);
-
-      setPosts(postsResponse.data);
-      setPinnedPosts(pinnedResponse.data);
-      
-      // Update categories with post counts (in real app, this would come from API)
-      const updatedCategories = defaultCategories.map(cat => ({
-        ...cat,
-        postCount: cat.id === 'all' ? postsResponse.data.length : 
-                  postsResponse.data.filter((p: ForumPost) => p.category === cat.id).length
-      }));
-      setCategories(updatedCategories);
-    } catch (error) {
-      console.error('Error fetching forum data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterPosts = () => {
-    // In real implementation, this would filter posts based on search query
-  };
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const visiblePosts = normalizedQuery
+    ? posts.filter(
+        (post) =>
+          post.title.toLowerCase().includes(normalizedQuery) ||
+          post.content.toLowerCase().includes(normalizedQuery)
+      )
+    : posts;
 
   const handleCreatePost = () => {
     if (!isAuthenticated) {
-      router.push('/auth/login');
+      void router.push('/auth/login');
       return;
     }
-    router.push('/community/create');
+    void router.push('/community/create');
   };
 
   const handlePostClick = (postId: string) => {
-    router.push(`/community/${postId}`);
+    void router.push(`/community/${postId}`);
   };
 
   const handleCategorySelect = (categoryId: string) => {
@@ -188,7 +201,7 @@ const ForumPage: React.FC<ForumPageProps> = () => {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
         </div>
       </Layout>
     );
@@ -244,11 +257,13 @@ const ForumPage: React.FC<ForumPageProps> = () => {
                       <div className="flex items-center">
                         <span className="text-lg mr-3">{category.icon}</span>
                         <div>
-                          <p className={`text-sm font-medium ${
+                          <p
+                            className={`text-sm font-medium ${
                             selectedCategory === category.id 
                               ? 'text-blue-700 dark:text-blue-300' 
                               : 'text-gray-900 dark:text-white'
-                          }`}>
+                          }`}
+                          >
                             {category.name}
                           </p>
                           {category.description && (
@@ -384,7 +399,7 @@ const ForumPage: React.FC<ForumPageProps> = () => {
                       key={post.id}
                       post={post}
                       onClick={() => handlePostClick(post.id)}
-                      isPinned={true}
+                      isPinned
                     />
                   ))}
                 </div>
@@ -397,15 +412,15 @@ const ForumPage: React.FC<ForumPageProps> = () => {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   {selectedCategory === 'all' 
                     ? 'All Posts' 
-                    : categories.find(c => c.id === selectedCategory)?.name || 'Posts'
+                    : categories.find((c) => c.id === selectedCategory)?.name ?? 'Posts'
                   }
                 </h3>
                 <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {posts.length} post{posts.length !== 1 ? 's' : ''}
+                  {visiblePosts.length} post{visiblePosts.length !== 1 ? 's' : ''}
                 </span>
               </div>
 
-              {posts.length === 0 ? (
+              {visiblePosts.length === 0 ? (
                 <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
                   <MessageSquare className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-xl font-medium text-gray-900 dark:text-white mb-2">
@@ -426,7 +441,7 @@ const ForumPage: React.FC<ForumPageProps> = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {posts.map((post, index) => (
+                  {visiblePosts.map((post, index) => (
                     <motion.div
                       key={post.id}
                       variants={itemVariants}
@@ -470,7 +485,7 @@ const ForumPage: React.FC<ForumPageProps> = () => {
               </ul>
             </div>
             <div>
-              <h4 className="font-medium mb-2">❌ Don't:</h4>
+              <h4 className="font-medium mb-2">❌ Don&apos;t:</h4>
               <ul className="space-y-1">
                 <li>• Post spam or promotional content</li>
                 <li>• Use offensive or inappropriate language</li>

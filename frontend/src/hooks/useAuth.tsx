@@ -1,5 +1,12 @@
 import { useState, useEffect, useCallback, useContext, createContext } from 'react';
-import { authService, LoginCredentials, RegisterData, ChangePasswordData } from '../services/auth';
+
+import {
+  authService,
+  getTokenExpiry,
+  LoginCredentials,
+  RegisterData,
+  ChangePasswordData,
+} from '../services/auth';
 import { User } from '../types';
 
 interface AuthContextType {
@@ -70,7 +77,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     if (!isInitialized) {
-      initializeAuth();
+      void initializeAuth();
     }
   }, [isInitialized]);
 
@@ -90,37 +97,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     if (!user) return;
 
-    const setupTokenRefresh = () => {
-      const token = authService.getToken();
-      if (!token) return;
+    const token = authService.getToken();
+    if (!token) return;
 
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        const expirationTime = payload.exp * 1000; // Convert to milliseconds
-        const currentTime = Date.now();
-        const timeUntilExpiration = expirationTime - currentTime;
-        
-        // Refresh token 5 minutes before expiration
-        const refreshTime = Math.max(timeUntilExpiration - 5 * 60 * 1000, 0);
+    const exp = getTokenExpiry(token);
+    if (exp === null) return;
 
-        if (refreshTime > 0) {
-          const timeoutId = setTimeout(async () => {
-            try {
-              await authService.refreshToken();
-            } catch (error) {
-              console.error('Automatic token refresh failed:', error);
-              await logout();
-            }
-          }, refreshTime);
+    // Refresh token 5 minutes before expiration
+    const refreshTime = exp * 1000 - Date.now() - 5 * 60 * 1000;
+    if (refreshTime <= 0) return;
 
-          return () => clearTimeout(timeoutId);
-        }
-      } catch (error) {
-        console.error('Error setting up token refresh:', error);
-      }
-    };
+    const timeoutId = setTimeout(() => {
+      authService.refreshToken().catch(async (error: unknown) => {
+        console.error('Automatic token refresh failed:', error);
+        await authService.logout();
+        setUser(null);
+      });
+    }, refreshTime);
 
-    return setupTokenRefresh();
+    return () => clearTimeout(timeoutId);
   }, [user]);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
@@ -252,7 +247,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const contextValue: AuthContextType = {
     user,
-    isAuthenticated: authService.isAuthenticated,
+    isAuthenticated: user !== null,
     isLoading,
     isEmailVerified: authService.isEmailVerified,
     login,
@@ -323,7 +318,7 @@ export const withAuth = <P extends object>(
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
-            <p className="text-gray-600">You don't have permission to access this page.</p>
+            <p className="text-gray-600">You don&apos;t have permission to access this page.</p>
           </div>
         </div>
       );
@@ -393,14 +388,14 @@ export const useAuthRedirect = () => {
 
   const redirectToLogin = useCallback((returnUrl?: string) => {
     if (typeof window !== 'undefined') {
-      const url = returnUrl || window.location.pathname;
+      const url = returnUrl ?? window.location.pathname;
       window.location.href = `/auth/login?returnUrl=${encodeURIComponent(url)}`;
     }
   }, []);
 
   const redirectToRegister = useCallback((returnUrl?: string) => {
     if (typeof window !== 'undefined') {
-      const url = returnUrl || window.location.pathname;
+      const url = returnUrl ?? window.location.pathname;
       window.location.href = `/auth/register?returnUrl=${encodeURIComponent(url)}`;
     }
   }, []);

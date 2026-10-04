@@ -1,15 +1,17 @@
-import React, { useState } from 'react';
+import { Mail, Lock, Github, Chrome } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
+import React, { useState } from 'react';
+import toast from 'react-hot-toast';
+
 import { Button } from '@/components/UI/Button';
 import { Input } from '@/components/UI/Input';
 import { useAuth } from '@/hooks/useAuth';
-import { Mail, Lock, Github, Chrome } from 'lucide-react';
-import Link from 'next/link';
-import toast from 'react-hot-toast';
+
 
 interface LoginFormProps {
-  onSuccess?: () => void;
-  redirectTo?: string;
+  onSuccess?: () => void | undefined;
+  redirectTo?: string | undefined;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({ 
@@ -51,13 +53,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     setIsLoading(true);
     
     try {
-      const success = await login({ email, password });
-      
-      if (success) {
-        toast.success('Welcome back!');
-        onSuccess?.();
-        router.push(redirectTo);
-      }
+      await login({ email, password });
+      toast.success('Welcome back!');
+      onSuccess?.();
+      void router.push(redirectTo);
     } catch (error: any) {
       toast.error(error.message || 'Login failed');
     } finally {
@@ -146,7 +145,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
-        Don't have an account?{' '}
+        Don&apos;t have an account?{' '}
         <Link 
           href="/auth/register"
           className="text-blue-600 hover:text-blue-500 font-medium"
@@ -207,18 +206,16 @@ export const RegisterForm: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }
     setIsLoading(true);
     
     try {
-      const success = await register({
+      await register({
+        username: formData.email.split('@')[0] ?? formData.email,
         firstName: formData.firstName,
         lastName: formData.lastName,
         email: formData.email,
-        password: formData.password
+        password: formData.password,
       });
-      
-      if (success) {
-        toast.success('Account created successfully!');
-        onSuccess?.();
-        router.push('/dashboard');
-      }
+      toast.success('Account created successfully!');
+      onSuccess?.();
+      void router.push('/dashboard');
     } catch (error: any) {
       toast.error(error.message || 'Registration failed');
     } finally {

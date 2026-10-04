@@ -1,11 +1,11 @@
 import React from 'react';
 
 interface LoadingProps {
-  size?: 'sm' | 'md' | 'lg';
-  variant?: 'spinner' | 'dots' | 'pulse' | 'skeleton';
-  text?: string;
-  overlay?: boolean;
-  className?: string;
+  size?: 'sm' | 'md' | 'lg' | undefined;
+  variant?: 'spinner' | 'dots' | 'pulse' | 'skeleton' | undefined;
+  text?: string | undefined;
+  overlay?: boolean | undefined;
+  className?: string | undefined;
 }
 
 export const Loading: React.FC<LoadingProps> = ({
@@ -82,9 +82,9 @@ export const Loading: React.FC<LoadingProps> = ({
 
   const renderSkeleton = () => (
     <div className="animate-pulse space-y-2">
-      <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-      <div className="h-4 bg-gray-300 rounded w-1/2"></div>
-      <div className="h-4 bg-gray-300 rounded w-5/6"></div>
+      <div className="h-4 bg-gray-300 rounded w-3/4" />
+      <div className="h-4 bg-gray-300 rounded w-1/2" />
+      <div className="h-4 bg-gray-300 rounded w-5/6" />
     </div>
   );
 
@@ -122,13 +122,13 @@ export const Loading: React.FC<LoadingProps> = ({
 };
 
 // Specific loading components for common use cases
-export const PageLoading: React.FC<{ text?: string }> = ({ text = 'Loading...' }) => (
+export const PageLoading: React.FC<{ text?: string | undefined }> = ({ text = 'Loading...' }) => (
   <div className="flex items-center justify-center min-h-screen">
     <Loading size="lg" text={text} />
   </div>
 );
 
-export const SectionLoading: React.FC<{ text?: string }> = ({ text }) => (
+export const SectionLoading: React.FC<{ text?: string | undefined }> = ({ text }) => (
   <div className="flex items-center justify-center py-12">
     <Loading text={text} />
   </div>
@@ -138,7 +138,7 @@ export const ButtonLoading: React.FC = () => (
   <Loading size="sm" variant="spinner" />
 );
 
-export const InlineLoading: React.FC<{ text?: string }> = ({ text }) => (
+export const InlineLoading: React.FC<{ text?: string | undefined }> = ({ text }) => (
   <div className="flex items-center space-x-2">
     <Loading size="sm" variant="spinner" />
     {text && <span className="text-sm text-gray-600">{text}</span>}
@@ -149,10 +149,10 @@ export const TableLoading: React.FC<{ rows?: number }> = ({ rows = 3 }) => (
   <div className="animate-pulse space-y-3">
     {Array.from({ length: rows }, (_, i) => (
       <div key={i} className="flex space-x-4">
-        <div className="h-4 bg-gray-300 rounded w-1/4"></div>
-        <div className="h-4 bg-gray-300 rounded w-1/3"></div>
-        <div className="h-4 bg-gray-300 rounded w-1/6"></div>
-        <div className="h-4 bg-gray-300 rounded w-1/4"></div>
+        <div className="h-4 bg-gray-300 rounded w-1/4" />
+        <div className="h-4 bg-gray-300 rounded w-1/3" />
+        <div className="h-4 bg-gray-300 rounded w-1/6" />
+        <div className="h-4 bg-gray-300 rounded w-1/4" />
       </div>
     ))}
   </div>
@@ -160,10 +160,11 @@ export const TableLoading: React.FC<{ rows?: number }> = ({ rows = 3 }) => (
 
 export const CardLoading: React.FC = () => (
   <div className="animate-pulse">
-    <div className="h-48 bg-gray-300 rounded-lg mb-4"></div>
+    <div className="h-48 bg-gray-300 rounded-lg mb-4" />
     <div className="space-y-2">
-      <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-      <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+      <div className="h-4 bg-gray-300 rounded w-3/4" />
+      <div className="h-4 bg-gray-300 rounded w-1/2" />
     </div>
   </div>
 );
+export default Loading;

@@ -1,14 +1,15 @@
-import React, { forwardRef, InputHTMLAttributes } from 'react';
-import { cn } from '@/utils/cn';
 import { Eye, EyeOff, AlertCircle } from 'lucide-react';
+import React, { forwardRef, InputHTMLAttributes } from 'react';
+
+import { cn } from '@/utils/cn';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  error?: string;
-  helper?: string;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
-  isPassword?: boolean;
+  label?: string | undefined;
+  error?: string | undefined;
+  helper?: string | undefined;
+  leftIcon?: React.ReactNode | undefined;
+  rightIcon?: React.ReactNode | undefined;
+  isPassword?: boolean | undefined;
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(({
@@ -24,7 +25,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
   ...props
 }, ref) => {
   const [showPassword, setShowPassword] = React.useState(false);
-  const inputId = id || label?.toLowerCase().replace(/\s+/g, '-');
+  const inputId = id ?? label?.toLowerCase().replace(/\s+/g, '-');
   const actualType = isPassword ? (showPassword ? 'text' : 'password') : type;
 
   const inputStyles = cn(
@@ -35,7 +36,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
     'disabled:cursor-not-allowed disabled:opacity-50',
     error && 'border-destructive focus-visible:ring-destructive',
     leftIcon && 'pl-10',
-    (rightIcon || isPassword) && 'pr-10',
+    (rightIcon ?? isPassword) && 'pr-10',
     className
   );
 
@@ -69,6 +70,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
             className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -101,4 +103,5 @@ const Input = forwardRef<HTMLInputElement, InputProps>(({
 Input.displayName = 'Input';
 
 export { Input };
+export default Input;
 export type { InputProps };

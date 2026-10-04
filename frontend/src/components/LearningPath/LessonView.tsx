@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '../UI/Button';
+
 import { Badge } from '../UI/Badge';
+import { Button } from '../UI/Button';
 import { Loading } from '../UI/Loading';
 
 interface LessonContent {
@@ -193,7 +194,7 @@ int* ptr = _____;`,
       setLesson(mockLesson);
     };
 
-    fetchLesson();
+    void fetchLesson();
   }, [lessonId]);
 
   const handleQuizAnswer = (questionId: string, answer: string | number) => {
@@ -271,7 +272,7 @@ int* ptr = _____;`,
       default:
         return (
           <div className="text-gray-600">
-            Content type "{content.type}" not yet supported.
+            Content type &quot;{content.type}&quot; not yet supported.
           </div>
         );
     }
@@ -316,14 +317,16 @@ int* ptr = _____;`,
                       disabled={quizCompleted}
                       className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500"
                     />
-                    <span className={`
+                    <span
+                      className={`
                       ${quizCompleted && optionIndex === question.correctAnswer 
                         ? 'text-green-600 font-medium' 
                         : quizCompleted && quizAnswers[question.id] === optionIndex && optionIndex !== question.correctAnswer
                         ? 'text-red-600'
                         : 'text-gray-700'
                       }
-                    `}>
+                    `}
+                    >
                       {option}
                     </span>
                   </label>
@@ -334,7 +337,7 @@ int* ptr = _____;`,
             {question.type === 'code-completion' && (
               <input
                 type="text"
-                value={quizAnswers[question.id] || ''}
+                value={quizAnswers[question.id] ?? ''}
                 onChange={(e) => handleQuizAnswer(question.id, e.target.value)}
                 disabled={quizCompleted}
                 placeholder="Enter your answer..."
@@ -395,6 +398,8 @@ int* ptr = _____;`,
   const isQuizSection = currentSection >= lesson.content.length;
   const currentContent = !isQuizSection ? lesson.content[currentSection] : null;
 
+  const { previousLessonId, nextLessonId } = lesson;
+
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -421,7 +426,7 @@ int* ptr = _____;`,
 
         {/* Learning objectives */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-medium text-blue-900 mb-2">What you'll learn:</h3>
+          <h3 className="font-medium text-blue-900 mb-2">What you&apos;ll learn:</h3>
           <ul className="space-y-1 text-blue-800">
             {lesson.objectives.map((objective, index) => (
               <li key={index} className="flex items-start">
@@ -469,9 +474,9 @@ int* ptr = _____;`,
         </Button>
 
         <div className="flex items-center space-x-4">
-          {lesson.previousLessonId && (
+          {previousLessonId && (
             <Button
-              onClick={() => onNavigate(lesson.previousLessonId!)}
+              onClick={() => onNavigate(previousLessonId)}
               variant="secondary"
             >
               Previous Lesson
@@ -479,9 +484,9 @@ int* ptr = _____;`,
           )}
 
           {isQuizSection && quizCompleted && quizScore && quizScore >= 70 ? (
-            lesson.nextLessonId ? (
+            nextLessonId ? (
               <Button
-                onClick={() => onNavigate(lesson.nextLessonId!)}
+                onClick={() => onNavigate(nextLessonId)}
                 variant="primary"
               >
                 Next Lesson
@@ -497,7 +502,7 @@ int* ptr = _____;`,
           ) : (
             <Button
               onClick={handleNextSection}
-              disabled={isQuizSection && lesson.quiz}
+              disabled={isQuizSection && Boolean(lesson.quiz)}
               variant="primary"
             >
               {isQuizSection ? 'Lesson Complete' : currentSection === lesson.content.length - 1 && lesson.quiz ? 'Take Quiz' : 'Next'}

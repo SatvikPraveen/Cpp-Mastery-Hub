@@ -40,14 +40,14 @@ interface HealthResponse {
 
 // Environment configuration
 const config = {
-  version: process.env.npm_package_version || '1.0.0',
+  version: process.env.npm_package_version ?? '1.0.0',
   environment: process.env.NODE_ENV || 'development',
   database_url: process.env.DATABASE_URL,
   redis_url: process.env.REDIS_URL,
-  api_base_url: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+  api_base_url: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001'
 };
 
-let startTime = Date.now();
+const startTime = Date.now();
 
 // Health check utilities
 class HealthChecker {

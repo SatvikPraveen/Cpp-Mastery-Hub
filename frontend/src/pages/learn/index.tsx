@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import React, { useState, useEffect } from 'react';
+
 import { CourseList } from '../../components/LearningPath/CourseList';
-import { ProgressTracker } from '../../components/LearningPath/ProgressTracker';
 import { Badge } from '../../components/UI/Badge';
 import { Button } from '../../components/UI/Button';
 import { Loading } from '../../components/UI/Loading';
+import { SkillLevel, type Course } from '../../types';
 
-interface Course {
+interface CatalogCourse {
   id: string;
   title: string;
   description: string;
@@ -24,6 +25,42 @@ interface Course {
   estimatedHours: number;
 }
 
+const LEVEL_TO_SKILL: Record<CatalogCourse['level'], SkillLevel> = {
+  beginner: SkillLevel.BEGINNER,
+  intermediate: SkillLevel.INTERMEDIATE,
+  advanced: SkillLevel.ADVANCED,
+};
+
+/** Adapt the catalog's summary shape to the shared `Course` type used by CourseList. */
+const toCourse = (course: CatalogCourse, order: number): Course => ({
+  id: course.id,
+  title: course.title,
+  description: course.description,
+  slug: course.id,
+  ...(course.thumbnail !== undefined ? { thumbnail: course.thumbnail } : {}),
+  difficulty: LEVEL_TO_SKILL[course.level],
+  estimatedTime: course.estimatedHours * 60,
+  isPublished: true,
+  order,
+  overview: course.description,
+  objectives: [],
+  prerequisites: [],
+  createdAt: '',
+  updatedAt: '',
+  lessons: [],
+  completionRate: course.progress,
+  level: course.level,
+  duration: course.estimatedHours,
+  lessonsCount: course.lessons,
+  rating: course.rating,
+  studentsCount: course.students,
+  instructor: { name: course.instructor },
+  tags: course.tags,
+});
+
+type LevelFilter = 'all' | CatalogCourse['level'];
+type CategoryFilter = 'all' | 'fundamentals' | 'advanced' | 'specialization';
+
 interface LearningStats {
   totalCourses: number;
   completedCourses: number;
@@ -35,18 +72,18 @@ interface LearningStats {
 }
 
 const LearnPage: React.FC = () => {
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<CatalogCourse[]>([]);
   const [stats, setStats] = useState<LearningStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedLevel, setSelectedLevel] = useState<'all' | 'beginner' | 'intermediate' | 'advanced'>('all');
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'fundamentals' | 'advanced' | 'specialization'>('all');
+  const [selectedLevel, setSelectedLevel] = useState<LevelFilter>('all');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all');
 
   useEffect(() => {
-    const fetchLearningData = async () => {
+    const fetchLearningData = () => {
       setLoading(true);
       try {
         // Mock data - replace with actual API calls
-        const mockCourses: Course[] = [
+        const mockCourses: CatalogCourse[] = [
           {
             id: 'cpp-fundamentals',
             title: 'C++ Fundamentals',
@@ -346,7 +383,7 @@ const LearnPage: React.FC = () => {
             <div className="flex items-center space-x-4">
               <select
                 value={selectedLevel}
-                onChange={(e) => setSelectedLevel(e.target.value as any)}
+                onChange={(e) => setSelectedLevel(e.target.value as LevelFilter)}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="all">All Levels</option>
@@ -357,7 +394,7 @@ const LearnPage: React.FC = () => {
               
               <select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value as any)}
+                onChange={(e) => setSelectedCategory(e.target.value as CategoryFilter)}
                 className="px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="all">All Categories</option>
@@ -368,12 +405,7 @@ const LearnPage: React.FC = () => {
             </div>
           </div>
 
-          <CourseList 
-            courses={filteredCourses}
-            showEnrollButton
-            showProgress
-            onCourseClick={(courseId) => window.location.href = `/learn/${courseId}`}
-          />
+          <CourseList courses={filteredCourses.map(toCourse)} showFilters={false} />
         </section>
 
         {/* Learning Paths */}

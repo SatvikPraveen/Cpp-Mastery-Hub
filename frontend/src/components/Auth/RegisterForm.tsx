@@ -1,10 +1,12 @@
+import Link from 'next/link';
 import React, { useState } from 'react';
+
 import { Button } from '../UI/Button';
 import { Input } from '../UI/Input';
 
 interface RegisterFormProps {
   onSubmit: (data: RegisterData) => Promise<void>;
-  loading?: boolean;
+  loading?: boolean | undefined;
 }
 
 interface RegisterData {
@@ -159,9 +161,9 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSubmit, loading = 
 
       <div className="text-center text-sm text-gray-600">
         Already have an account?{' '}
-        <a href="/auth/login" className="text-blue-600 hover:underline">
+        <Link href="/auth/login" className="text-blue-600 hover:underline">
           Sign in
-        </a>
+        </Link>
       </div>
     </form>
   );

@@ -1,6 +1,7 @@
 /**
  * Validation utility functions for forms and user input
  */
+import { formatFileSize } from './formatting';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -10,7 +11,7 @@ export interface ValidationResult {
 /**
  * Validate required field
  */
-export function validateRequired(value: any, fieldName: string): ValidationResult {
+export function validateRequired(value: unknown, fieldName: string): ValidationResult {
   const isValid = value !== null && value !== undefined && String(value).trim() !== '';
   return {
     isValid,
@@ -115,7 +116,7 @@ export function validateFile(
   const errors: string[] = [];
   
   // Check file type
-  const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+  const fileExtension = `.${file.name.split('.').pop()?.toLowerCase()}`;
   if (!allowedTypes.includes(fileExtension)) {
     errors.push(`File type not allowed. Allowed types: ${allowedTypes.join(', ')}`);
   }

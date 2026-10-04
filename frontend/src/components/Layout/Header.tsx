@@ -1,10 +1,14 @@
 import { Search, Bell, Moon, Sun, Menu } from 'lucide-react';
+import React, { useState } from 'react';
+
+import { Button } from '@/components/UI/Button';
+import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
-import { useState } from 'react';
+import { getUserInitials } from '@/utils/helpers';
 
 interface HeaderProps {
-  onMenuClick?: () => void;
-  showMenuButton?: boolean;
+  onMenuClick?: (() => void) | undefined;
+  showMenuButton?: boolean | undefined;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -34,6 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
+            aria-label="Search"
             placeholder="Search tutorials, exercises, or ask a question..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -48,6 +53,7 @@ export const Header: React.FC<HeaderProps> = ({
           variant="ghost"
           size="sm"
           onClick={toggleTheme}
+          aria-label="Toggle theme"
           className="h-8 w-8 p-0"
         >
           {theme === 'dark' ? (
@@ -72,10 +78,12 @@ export const Header: React.FC<HeaderProps> = ({
         {/* User Menu */}
         {user && (
           <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium cursor-pointer">
-            {user.firstName[0]}{user.lastName[0]}
+            {getUserInitials(user)}
           </div>
         )}
       </div>
     </header>
   );
 };
+
+export default Header;

@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import Link from 'next/link';
-import { Eye, EyeOff, Mail, Lock, Github, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Eye, EyeOff, Mail, Lock, Github, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import React, { useState, useEffect } from 'react';
+
 import Layout from '../../components/Layout/Layout';
 import { useAuth } from '../../hooks/useAuth';
-import { authService } from '../../services/api';
 
 interface LoginPageProps {}
 
@@ -25,7 +25,7 @@ const LoginPage: React.FC<LoginPageProps> = () => {
   useEffect(() => {
     if (isAuthenticated) {
       const returnUrl = router.query.returnUrl as string;
-      router.push(returnUrl || '/learn');
+      void router.push(returnUrl || '/learn');
     }
   }, [isAuthenticated, router]);
 
@@ -45,25 +45,12 @@ const LoginPage: React.FC<LoginPageProps> = () => {
     setError('');
 
     try {
-      const response = await authService.login({
-        email: formData.email,
-        password: formData.password,
-        rememberMe
-      });
-
-      // Store auth token
-      if (rememberMe) {
-        localStorage.setItem('authToken', response.data.token);
-      } else {
-        sessionStorage.setItem('authToken', response.data.token);
-      }
-
-      // Update auth context
-      await login(response.data.user, response.data.token);
+      // The auth hook calls the API, persists the session and updates context.
+      await login({ email: formData.email, password: formData.password, rememberMe });
 
       // Redirect to return URL or dashboard
       const returnUrl = router.query.returnUrl as string;
-      router.push(returnUrl || '/learn');
+      void router.push(returnUrl || '/learn');
     } catch (error: any) {
       setError(error.response?.data?.message || 'Login failed. Please try again.');
     } finally {
@@ -227,7 +214,7 @@ const LoginPage: React.FC<LoginPageProps> = () => {
                   className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {loading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
                   ) : (
                     'Sign in'
                   )}
@@ -290,7 +277,7 @@ const LoginPage: React.FC<LoginPageProps> = () => {
             {/* Sign Up Link */}
             <div className="mt-6 text-center">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <Link href="/auth/register">
                   <span className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 cursor-pointer">
                     Sign up for free

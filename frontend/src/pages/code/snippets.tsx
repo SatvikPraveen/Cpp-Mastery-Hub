@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { Search, Filter, Code, Star, Eye, Download, Trash2, Edit, Plus, Calendar, User } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Layout from '../../components/Layout/Layout';
+import { Search, Code, Star, Eye, Download, Trash2, Edit, Plus, Calendar } from 'lucide-react';
+import { useRouter } from 'next/router';
+import React, { useState, useEffect } from 'react';
+
 import CodeEditor from '../../components/Code/CodeEditor';
+import Layout from '../../components/Layout/Layout';
 import { useAuth } from '../../hooks/useAuth';
 import { codeService } from '../../services/api';
 import { CodeSnippet } from '../../types';
@@ -12,7 +13,7 @@ interface CodeSnippetsProps {}
 
 const CodeSnippets: React.FC<CodeSnippetsProps> = () => {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [snippets, setSnippets] = useState<CodeSnippet[]>([]);
   const [filteredSnippets, setFilteredSnippets] = useState<CodeSnippet[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,9 +50,9 @@ const CodeSnippets: React.FC<CodeSnippetsProps> = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      fetchSnippets();
+      void fetchSnippets();
     } else {
-      router.push('/auth/login');
+      void router.push('/auth/login');
     }
   }, [isAuthenticated]);
 
@@ -63,7 +64,7 @@ const CodeSnippets: React.FC<CodeSnippetsProps> = () => {
     try {
       setLoading(true);
       const response = await codeService.getUserSnippets();
-      setSnippets(response.data);
+      setSnippets(response.data as CodeSnippet[]);
     } catch (error) {
       console.error('Error fetching snippets:', error);
     } finally {
@@ -78,7 +79,7 @@ const CodeSnippets: React.FC<CodeSnippetsProps> = () => {
     if (searchQuery) {
       filtered = filtered.filter(snippet =>
         snippet.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        snippet.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (snippet.description ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         snippet.code.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
@@ -125,7 +126,7 @@ const CodeSnippets: React.FC<CodeSnippetsProps> = () => {
   };
 
   const handleEditSnippet = (snippet: CodeSnippet) => {
-    router.push(`/code/edit/${snippet.id}`);
+    void router.push(`/code/edit/${snippet.id}`);
   };
 
   const handlePreviewSnippet = (snippet: CodeSnippet) => {
@@ -135,7 +136,7 @@ const CodeSnippets: React.FC<CodeSnippetsProps> = () => {
 
   const handleLoadInPlayground = (snippet: CodeSnippet) => {
     localStorage.setItem('playgroundCode', snippet.code);
-    router.push('/code');
+    void router.push('/code');
   };
 
   const handleExportSnippet = (snippet: CodeSnippet) => {
@@ -361,10 +362,10 @@ const CodeSnippets: React.FC<CodeSnippetsProps> = () => {
                 className={`p-2 rounded ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
               >
                 <div className="grid grid-cols-2 gap-1 w-4 h-4">
-                  <div className="bg-current rounded-sm"></div>
-                  <div className="bg-current rounded-sm"></div>
-                  <div className="bg-current rounded-sm"></div>
-                  <div className="bg-current rounded-sm"></div>
+                  <div className="bg-current rounded-sm" />
+                  <div className="bg-current rounded-sm" />
+                  <div className="bg-current rounded-sm" />
+                  <div className="bg-current rounded-sm" />
                 </div>
               </button>
               
@@ -373,9 +374,9 @@ const CodeSnippets: React.FC<CodeSnippetsProps> = () => {
                 className={`p-2 rounded ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
               >
                 <div className="space-y-1 w-4 h-4">
-                  <div className="bg-current h-1 rounded"></div>
-                  <div className="bg-current h-1 rounded"></div>
-                  <div className="bg-current h-1 rounded"></div>
+                  <div className="bg-current h-1 rounded" />
+                  <div className="bg-current h-1 rounded" />
+                  <div className="bg-current h-1 rounded" />
                 </div>
               </button>
             </div>
@@ -385,7 +386,7 @@ const CodeSnippets: React.FC<CodeSnippetsProps> = () => {
         {/* Content */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
           </div>
         ) : filteredSnippets.length === 0 ? (
           <div className="text-center py-12">
@@ -406,7 +407,8 @@ const CodeSnippets: React.FC<CodeSnippetsProps> = () => {
             </button>
           </div>
         ) : (
-          <div className={`${viewMode === 'grid' 
+          <div
+            className={`${viewMode === 'grid' 
             ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' 
             : 'space-y-4'}`}
           >
@@ -436,7 +438,7 @@ const CodeSnippets: React.FC<CodeSnippetsProps> = () => {
                 <CodeEditor
                   value={selectedSnippet.code}
                   language={selectedSnippet.language}
-                  readOnly={true}
+                  readOnly
                   height="400px"
                 />
               </div>

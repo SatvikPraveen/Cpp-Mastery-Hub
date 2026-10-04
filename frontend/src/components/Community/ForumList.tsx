@@ -1,8 +1,3 @@
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Button } from '@/components/UI/Button';
-import { Input } from '@/components/UI/Input';
-import { Badge } from '@/components/UI/Badge';
 import { 
   MessageCircle, 
   Users, 
@@ -13,8 +8,16 @@ import {
   Pin,
   Lock
 } from 'lucide-react';
-import { ForumCategory, ForumPost } from '@/types';
+import Link from 'next/link';
+import React, { useState, useEffect } from 'react';
+
+import { Badge } from '@/components/UI/Badge';
+import { Button } from '@/components/UI/Button';
+import { Input } from '@/components/UI/Input';
 import { apiService } from '@/services/api';
+import type { ForumCategory, ForumPost } from '@/types';
+
+import { getAuthorName, getInitials } from './forumHelpers';
 
 interface ForumListProps {
   categoryId?: string;
@@ -28,27 +31,27 @@ export const ForumList: React.FC<ForumListProps> = ({ categoryId }) => {
   const [sortBy, setSortBy] = useState<'recent' | 'popular' | 'replies'>('recent');
 
   useEffect(() => {
-    fetchForumData();
-  }, [categoryId, sortBy]);
+    const fetchForumData = async () => {
+      try {
+        setLoading(true);
+        const [categoriesRes, postsRes] = await Promise.all([
+          apiService.get<ForumCategory[]>('/api/forum/categories'),
+          apiService.get<ForumPost[]>('/api/forum/posts', {
+            params: { categoryId, sort: sortBy },
+          }),
+        ]);
 
-  const fetchForumData = async () => {
-    try {
-      setLoading(true);
-      const [categoriesRes, postsRes] = await Promise.all([
-        apiService.get('/api/forum/categories'),
-        apiService.get('/api/forum/posts', {
-          params: { categoryId, sort: sortBy }
-        })
-      ]);
-      
-      setCategories(categoriesRes.data);
-      setPosts(postsRes.data);
-    } catch (error) {
-      console.error('Failed to fetch forum data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        setCategories(categoriesRes.data);
+        setPosts(postsRes.data);
+      } catch (error) {
+        console.error('Failed to fetch forum data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchForumData();
+  }, [categoryId, sortBy]);
 
   const filteredPosts = posts.filter(post =>
     post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -58,8 +61,8 @@ export const ForumList: React.FC<ForumListProps> = ({ categoryId }) => {
   if (loading) {
     return (
       <div className="space-y-4">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="animate-pulse bg-muted rounded-lg h-24"></div>
+        {Array.from({ length: 5 }, (_, i) => `skeleton-${i}`).map((key) => (
+          <div key={key} className="animate-pulse bg-muted rounded-lg h-24" />
         ))}
       </div>
     );
@@ -76,12 +79,9 @@ export const ForumList: React.FC<ForumListProps> = ({ categoryId }) => {
           </p>
         </div>
         
-        <Button
-          leftIcon={<Plus className="h-4 w-4" />}
-          asChild
-        >
-          <Link href="/community/new-post">Create Post</Link>
-        </Button>
+        <Link href="/community/new-post">
+          <Button leftIcon={<Plus className="h-4 w-4" />}>Create Post</Button>
+        </Link>
       </div>
 
       {/* Categories */}
@@ -164,7 +164,7 @@ export const ForumList: React.FC<ForumListProps> = ({ categoryId }) => {
               <div className="flex items-start space-x-4">
                 {/* Author Avatar */}
                 <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
-                  {post.author.firstName[0]}{post.author.lastName[0]}
+                  {getInitials(getAuthorName(post))}
                 </div>
                 
                 <div className="flex-1 min-w-0">
@@ -189,18 +189,18 @@ export const ForumList: React.FC<ForumListProps> = ({ categoryId }) => {
                       </p>
                       
                       <div className="flex items-center space-x-4 text-xs text-muted-foreground">
-                        <span>{post.author.firstName} {post.author.lastName}</span>
+                        <span>{getAuthorName(post)}</span>
                         <div className="flex items-center space-x-1">
                           <Clock className="h-3 w-3" />
                           <span>{new Date(post.createdAt).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <MessageCircle className="h-3 w-3" />
-                          <span>{post.repliesCount} replies</span>
+                          <span>{post.repliesCount ?? post.commentCount ?? 0} replies</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <TrendingUp className="h-3 w-3" />
-                          <span>{post.viewsCount} views</span>
+                          <span>{post.viewsCount ?? post.viewCount} views</span>
                         </div>
                       </div>
                     </div>
@@ -208,7 +208,7 @@ export const ForumList: React.FC<ForumListProps> = ({ categoryId }) => {
                     {post.lastReply && (
                       <div className="text-xs text-muted-foreground text-right">
                         <div>Last reply by</div>
-                        <div className="font-medium">{post.lastReply.author.firstName}</div>
+                        <div className="font-medium">{post.lastReply.author}</div>
                         <div>{new Date(post.lastReply.createdAt).toLocaleDateString()}</div>
                       </div>
                     )}
@@ -227,9 +227,9 @@ export const ForumList: React.FC<ForumListProps> = ({ categoryId }) => {
           <p className="text-muted-foreground mb-4">
             {searchTerm ? 'Try different search terms' : 'Be the first to start a discussion!'}
           </p>
-          <Button asChild>
-            <Link href="/community/new-post">Create First Post</Link>
-          </Button>
+          <Link href="/community/new-post">
+            <Button>Create First Post</Button>
+          </Link>
         </div>
       )}
     </div>

@@ -1,20 +1,34 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import axios, {
+  AxiosError,
+  AxiosInstance,
+  AxiosRequestConfig,
+  InternalAxiosRequestConfig,
+} from 'axios';
 import { toast } from 'react-hot-toast';
 
+// Request timing metadata attached by the request interceptor.
+declare module 'axios' {
+  export interface InternalAxiosRequestConfig {
+    metadata?: { requestStartedAt: number };
+    _retry?: boolean;
+  }
+}
+
+/** Query-string parameters forwarded to axios. */
+type QueryParams = object;
+
+interface ErrorBody {
+  message?: string;
+  code?: string;
+  errors?: Record<string, string[]>;
+}
+
 // API Response interfaces
-interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data: T;
   message?: string;
   success: boolean;
   errors?: Record<string, string[]>;
-}
-
-interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
 }
 
 interface ApiError {
@@ -26,10 +40,10 @@ interface ApiError {
 
 // Configuration
 const API_CONFIG = {
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
+  baseURL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001/api',
   timeout: 30000,
   retryAttempts: 3,
-  retryDelay: 1000
+  retryDelay: 1000,
 };
 
 class ApiService {
@@ -43,8 +57,8 @@ class ApiService {
       timeout: API_CONFIG.timeout,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
+        Accept: 'application/json',
+      },
     });
 
     this.setupInterceptors();
@@ -74,20 +88,27 @@ class ApiService {
       (response) => {
         // Log response time in development
         if (process.env.NODE_ENV === 'development') {
-          const responseTime = Date.now() - response.config.metadata.requestStartedAt;
-          console.log(`API Response: ${response.config.method?.toUpperCase()} ${response.config.url} - ${responseTime}ms`);
+          const responseTime =
+            Date.now() - (response.config.metadata?.requestStartedAt ?? Date.now());
+          console.log(
+            `API Response: ${response.config.method?.toUpperCase()} ${response.config.url} - ${responseTime}ms`
+          );
         }
 
         this.retryCount = 0;
         return response;
       },
-      async (error) => {
-        const originalRequest = error.config;
+      async (error: AxiosError<ErrorBody>) => {
+        const originalRequest: InternalAxiosRequestConfig | undefined = error.config;
+        if (!originalRequest) {
+          this.handleApiError(error);
+          return Promise.reject(error);
+        }
 
         // Handle 401 Unauthorized
         if (error.response?.status === 401 && !originalRequest._retry) {
           originalRequest._retry = true;
-          
+
           try {
             const refreshToken = this.getRefreshToken();
             if (refreshToken) {
@@ -96,13 +117,13 @@ class ApiService {
               originalRequest.headers.Authorization = `Bearer ${newToken}`;
               return this.client(originalRequest);
             }
-          } catch (refreshError) {
+          } catch {
             this.handleAuthError();
           }
         }
 
         // Handle network errors with retry
-        if (error.code === 'NETWORK_ERROR' || error.code === 'ECONNABORTED') {
+        if (error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED') {
           if (this.retryCount < API_CONFIG.retryAttempts) {
             this.retryCount++;
             await this.delay(API_CONFIG.retryDelay * this.retryCount);
@@ -117,27 +138,24 @@ class ApiService {
     );
   }
 
-  private handleApiError(error: any): void {
+  private handleApiError(error: AxiosError<ErrorBody>): void {
+    const status = error.response?.status;
+    const body = error.response?.data;
     const apiError: ApiError = {
-      message: 'An unexpected error occurred',
-      status: error.response?.status,
-      code: error.response?.data?.code || error.code
+      message: body?.message ?? error.message ?? 'An unexpected error occurred',
     };
-
-    if (error.response?.data) {
-      apiError.message = error.response.data.message || apiError.message;
-      apiError.errors = error.response.data.errors;
-    } else if (error.message) {
-      apiError.message = error.message;
-    }
+    if (status !== undefined) apiError.status = status;
+    const code = body?.code ?? error.code;
+    if (code !== undefined) apiError.code = code;
+    if (body?.errors) apiError.errors = body.errors;
 
     // Show error toast for client errors (4xx) but not auth errors
-    if (error.response?.status >= 400 && error.response?.status < 500 && error.response?.status !== 401) {
+    if (status !== undefined && status >= 400 && status < 500 && status !== 401) {
       toast.error(apiError.message);
     }
 
     // Show error toast for server errors (5xx)
-    if (error.response?.status >= 500) {
+    if (status !== undefined && status >= 500) {
       toast.error('Server error. Please try again later.');
     }
 
@@ -150,7 +168,7 @@ class ApiService {
   private handleAuthError(): void {
     this.clearAuth();
     toast.error('Session expired. Please sign in again.');
-    
+
     // Redirect to login page
     if (typeof window !== 'undefined') {
       window.location.href = '/auth/login';
@@ -158,14 +176,14 @@ class ApiService {
   }
 
   private async refreshAuthToken(refreshToken: string): Promise<string> {
-    const response = await axios.post(`${API_CONFIG.baseURL}/auth/refresh`, {
-      refreshToken
+    const response = await axios.post<{ token: string }>(`${API_CONFIG.baseURL}/auth/refresh`, {
+      refreshToken,
     });
     return response.data.token;
   }
 
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   // Auth methods
@@ -178,11 +196,11 @@ class ApiService {
 
   getAuthToken(): string | null {
     if (this.authToken) return this.authToken;
-    
+
     if (typeof window !== 'undefined') {
-      this.authToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+      this.authToken = localStorage.getItem('authToken') ?? sessionStorage.getItem('authToken');
     }
-    
+
     return this.authToken;
   }
 
@@ -208,17 +226,21 @@ class ApiService {
     return response.data;
   }
 
-  async post<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     const response = await this.client.post<ApiResponse<T>>(url, data, config);
     return response.data;
   }
 
-  async put<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     const response = await this.client.put<ApiResponse<T>>(url, data, config);
     return response.data;
   }
 
-  async patch<T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
+  async patch<T>(
+    url: string,
+    data?: unknown,
+    config?: AxiosRequestConfig
+  ): Promise<ApiResponse<T>> {
     const response = await this.client.patch<ApiResponse<T>>(url, data, config);
     return response.data;
   }
@@ -229,20 +251,24 @@ class ApiService {
   }
 
   // File upload method
-  async upload<T>(url: string, file: File, onProgress?: (progress: number) => void): Promise<ApiResponse<T>> {
+  async upload<T>(
+    url: string,
+    file: File,
+    onProgress?: (progress: number) => void
+  ): Promise<ApiResponse<T>> {
     const formData = new FormData();
     formData.append('file', file);
 
     const config: AxiosRequestConfig = {
       headers: {
-        'Content-Type': 'multipart/form-data'
+        'Content-Type': 'multipart/form-data',
       },
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
           const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           onProgress(progress);
         }
-      }
+      },
     };
 
     const response = await this.client.post<ApiResponse<T>>(url, formData, config);
@@ -291,7 +317,7 @@ export const authService = {
 
   async changePassword(data: { currentPassword: string; newPassword: string }) {
     return apiService.post('/auth/change-password', data);
-  }
+  },
 };
 
 // User service
@@ -300,7 +326,7 @@ export const userService = {
     return apiService.get('/users/profile');
   },
 
-  async updateProfile(data: any) {
+  async updateProfile(data: unknown) {
     return apiService.patch('/users/profile', data);
   },
 
@@ -308,7 +334,7 @@ export const userService = {
     return apiService.upload('/users/avatar', file, onProgress);
   },
 
-  async getUsers(params?: any) {
+  async getUsers(params?: QueryParams) {
     return apiService.get('/users', { params });
   },
 
@@ -324,14 +350,14 @@ export const userService = {
     return apiService.get('/users/stats');
   },
 
-  async getLeaderboard(type: string = 'points', limit: number = 10) {
+  async getLeaderboard(type = 'points', limit = 10) {
     return apiService.get('/users/leaderboard', { params: { type, limit } });
-  }
+  },
 };
 
 // Course service
 export const courseService = {
-  async getAllCourses(params?: any) {
+  async getAllCourses(params?: QueryParams) {
     return apiService.get('/courses', { params });
   },
 
@@ -387,9 +413,9 @@ export const courseService = {
     return apiService.get(`/courses/${courseId}/prerequisites`);
   },
 
-  async submitQuiz(courseId: string, lessonId: string, answers: any[]) {
+  async submitQuiz(courseId: string, lessonId: string, answers: unknown[]) {
     return apiService.post(`/courses/${courseId}/lessons/${lessonId}/quiz/submit`, { answers });
-  }
+  },
 };
 
 // Code service
@@ -398,11 +424,17 @@ export const codeService = {
     return apiService.post('/code/execute', data);
   },
 
-  async saveSnippet(data: { title: string; code: string; language: string; description?: string; isPublic?: boolean }) {
+  async saveSnippet(data: {
+    title: string;
+    code: string;
+    language: string;
+    description?: string;
+    isPublic?: boolean;
+  }) {
     return apiService.post('/code/snippets', data);
   },
 
-  async getSnippets(params?: any) {
+  async getSnippets(params?: QueryParams) {
     return apiService.get('/code/snippets', { params });
   },
 
@@ -414,7 +446,7 @@ export const codeService = {
     return apiService.get(`/code/snippets/${snippetId}`);
   },
 
-  async updateSnippet(snippetId: string, data: any) {
+  async updateSnippet(snippetId: string, data: unknown) {
     return apiService.patch(`/code/snippets/${snippetId}`, data);
   },
 
@@ -444,12 +476,12 @@ export const codeService = {
 
   async unlikeSnippet(snippetId: string) {
     return apiService.delete(`/code/snippets/${snippetId}/like`);
-  }
+  },
 };
 
 // Community service
 export const communityService = {
-  async getPosts(params?: any) {
+  async getPosts(params?: QueryParams) {
     return apiService.get('/community/posts', { params });
   },
 
@@ -461,7 +493,7 @@ export const communityService = {
     return apiService.post('/community/posts', data);
   },
 
-  async updatePost(postId: string, data: any) {
+  async updatePost(postId: string, data: unknown) {
     return apiService.patch(`/community/posts/${postId}`, data);
   },
 
@@ -511,7 +543,7 @@ export const communityService = {
 
   async reportPost(postId: string, reason: string) {
     return apiService.post(`/community/posts/${postId}/report`, { reason });
-  }
+  },
 };
 
 // Collaboration service
@@ -524,11 +556,11 @@ export const collaborationService = {
     return apiService.get(`/collaboration/sessions/${sessionId}`);
   },
 
-  async getSessions(params?: any) {
+  async getSessions(params?: QueryParams) {
     return apiService.get('/collaboration/sessions', { params });
   },
 
-  async updateSession(sessionId: string, data: any) {
+  async updateSession(sessionId: string, data: unknown) {
     return apiService.patch(`/collaboration/sessions/${sessionId}`, data);
   },
 
@@ -550,16 +582,16 @@ export const collaborationService = {
 
   async kickUser(sessionId: string, userId: string) {
     return apiService.post(`/collaboration/sessions/${sessionId}/kick`, { userId });
-  }
+  },
 };
 
 // Analytics service
 export const analyticsService = {
-  async trackEvent(event: string, properties?: Record<string, any>) {
+  async trackEvent(event: string, properties?: Record<string, unknown>) {
     return apiService.post('/analytics/events', { event, properties });
   },
 
-  async getAnalytics(params?: any) {
+  async getAnalytics(params?: QueryParams) {
     return apiService.get('/analytics', { params });
   },
 
@@ -573,12 +605,12 @@ export const analyticsService = {
 
   async getCodeMetrics() {
     return apiService.get('/analytics/code-metrics');
-  }
+  },
 };
 
 // Notification service
 export const notificationService = {
-  async getNotifications(params?: any) {
+  async getNotifications(params?: QueryParams) {
     return apiService.get('/notifications', { params });
   },
 
@@ -598,36 +630,36 @@ export const notificationService = {
     return apiService.get('/notifications/unread-count');
   },
 
-  async updatePreferences(preferences: any) {
+  async updatePreferences(preferences: unknown) {
     return apiService.patch('/notifications/preferences', preferences);
-  }
+  },
 };
 
 // Search service
 export const searchService = {
-  async search(query: string, filters?: any) {
+  async search(query: string, filters?: QueryParams) {
     return apiService.get('/search', { params: { q: query, ...filters } });
   },
 
-  async searchCourses(query: string, filters?: any) {
+  async searchCourses(query: string, filters?: QueryParams) {
     return apiService.get('/search/courses', { params: { q: query, ...filters } });
   },
 
-  async searchPosts(query: string, filters?: any) {
+  async searchPosts(query: string, filters?: QueryParams) {
     return apiService.get('/search/posts', { params: { q: query, ...filters } });
   },
 
-  async searchUsers(query: string, filters?: any) {
+  async searchUsers(query: string, filters?: QueryParams) {
     return apiService.get('/search/users', { params: { q: query, ...filters } });
   },
 
-  async searchCode(query: string, filters?: any) {
+  async searchCode(query: string, filters?: QueryParams) {
     return apiService.get('/search/code', { params: { q: query, ...filters } });
   },
 
   async getSearchSuggestions(query: string) {
     return apiService.get('/search/suggestions', { params: { q: query } });
-  }
+  },
 };
 
 // Admin service
@@ -636,11 +668,11 @@ export const adminService = {
     return apiService.get('/admin/stats');
   },
 
-  async getUsers(params?: any) {
+  async getUsers(params?: QueryParams) {
     return apiService.get('/admin/users', { params });
   },
 
-  async updateUser(userId: string, data: any) {
+  async updateUser(userId: string, data: unknown) {
     return apiService.patch(`/admin/users/${userId}`, data);
   },
 
@@ -652,15 +684,15 @@ export const adminService = {
     return apiService.post(`/admin/users/${userId}/unban`);
   },
 
-  async getCourses(params?: any) {
+  async getCourses(params?: QueryParams) {
     return apiService.get('/admin/courses', { params });
   },
 
-  async createCourse(data: any) {
+  async createCourse(data: unknown) {
     return apiService.post('/admin/courses', data);
   },
 
-  async updateCourse(courseId: string, data: any) {
+  async updateCourse(courseId: string, data: unknown) {
     return apiService.patch(`/admin/courses/${courseId}`, data);
   },
 
@@ -668,7 +700,7 @@ export const adminService = {
     return apiService.delete(`/admin/courses/${courseId}`);
   },
 
-  async getReports(params?: any) {
+  async getReports(params?: QueryParams) {
     return apiService.get('/admin/reports', { params });
   },
 
@@ -676,9 +708,9 @@ export const adminService = {
     return apiService.post(`/admin/reports/${reportId}/resolve`, { action });
   },
 
-  async getSystemLogs(params?: any) {
+  async getSystemLogs(params?: QueryParams) {
     return apiService.get('/admin/logs', { params });
-  }
+  },
 };
 
 // Health service
@@ -697,20 +729,20 @@ export const healthService = {
 
   async getMetrics() {
     return apiService.get('/health/metrics');
-  }
+  },
 };
 
 // Utility functions
 export const apiUtils = {
   // Build query string from object
-  buildQueryString(params: Record<string, any>): string {
+  buildQueryString(params: Record<string, unknown>): string {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value !== null && value !== undefined) {
         if (Array.isArray(value)) {
-          value.forEach(v => searchParams.append(key, v.toString()));
+          value.forEach((v: unknown) => searchParams.append(key, String(v)));
         } else {
-          searchParams.append(key, value.toString());
+          searchParams.append(key, String(value));
         }
       }
     });
@@ -723,7 +755,7 @@ export const apiUtils = {
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
   },
 
   // Validate file type
@@ -746,17 +778,17 @@ export const apiUtils = {
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
-  }
+  },
 };
 
 // Initialize auth token on service creation
 if (typeof window !== 'undefined') {
-  const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+  const token = localStorage.getItem('authToken') ?? sessionStorage.getItem('authToken');
   if (token) {
     apiService.setAuthToken(token);
   }
 }
 
 // Export the main service instance and individual services
-export { apiService };
+export { apiService, apiService as api };
 export default apiService;

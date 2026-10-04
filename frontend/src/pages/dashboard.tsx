@@ -1,23 +1,24 @@
-import React, { useEffect } from 'react';
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useAuth } from '@/hooks/useAuth';
+import React, { useEffect } from 'react';
+
+import { Dashboard } from '@/components/Dashboard/Dashboard';
 import MainLayout from '@/components/Layout/MainLayout';
-import Dashboard from '@/components/Dashboard/Dashboard';
 import LoadingSpinner from '@/components/UI/Loading';
+import { useAuth } from '@/hooks/useAuth';
 
 interface DashboardPageProps {
   title?: string;
 }
 
 const DashboardPage: React.FC<DashboardPageProps> = ({ title = 'Dashboard' }) => {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push('/auth/login?redirect=/dashboard');
+      void router.push('/auth/login?redirect=/dashboard');
     }
   }, [isAuthenticated, isLoading, router]);
 

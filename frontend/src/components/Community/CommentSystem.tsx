@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '../UI/Button';
-import { Loading } from '../UI/Loading';
+
 import { Badge } from '../UI/Badge';
+import { Button } from '../UI/Button';
 
 interface User {
   id: string;
@@ -41,8 +41,8 @@ interface CommentSystemProps {
 }
 
 export const CommentSystem: React.FC<CommentSystemProps> = ({
-  postId,
-  postType,
+  postId: _postId,
+  postType: _postType,
   initialComments = [],
   currentUser,
   onCommentAdd,
@@ -284,7 +284,7 @@ export const CommentSystem: React.FC<CommentSystemProps> = ({
                 <div className="flex items-center space-x-2">
                   <Button
                     size="sm"
-                    onClick={() => handleEditComment(comment.id)}
+                    onClick={() => void handleEditComment(comment.id)}
                     disabled={!editContent.trim()}
                   >
                     Save
@@ -312,7 +312,7 @@ export const CommentSystem: React.FC<CommentSystemProps> = ({
               {/* Voting */}
               <div className="flex items-center space-x-1">
                 <button
-                  onClick={() => handleVote(comment.id, 'like')}
+                  onClick={() => void handleVote(comment.id, 'like')}
                   disabled={!currentUser}
                   className={`
                     p-1 rounded transition-colors
@@ -323,14 +323,20 @@ export const CommentSystem: React.FC<CommentSystemProps> = ({
                     disabled:opacity-50 disabled:cursor-not-allowed
                   `}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                  <svg
+                    className="w-4 h-4" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+                    />
                   </svg>
                 </button>
                 <span className="text-sm text-gray-600">{comment.likes}</span>
 
                 <button
-                  onClick={() => handleVote(comment.id, 'dislike')}
+                  onClick={() => void handleVote(comment.id, 'dislike')}
                   disabled={!currentUser}
                   className={`
                     p-1 rounded transition-colors
@@ -341,8 +347,14 @@ export const CommentSystem: React.FC<CommentSystemProps> = ({
                     disabled:opacity-50 disabled:cursor-not-allowed
                   `}
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018c.163 0 .326.02.485.06L17 4m-7 10v2a2 2 0 002 2h.095c.5 0 .905-.405.905-.905 0-.714.211-1.412.608-2.006L17 13V4m-7 10h2m5-10H9a2 2 0 00-2 2v6a2 2 0 002 2h2.5" />
+                  <svg
+                    className="w-4 h-4" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018c.163 0 .326.02.485.06L17 4m-7 10v2a2 2 0 002 2h.095c.5 0 .905-.405.905-.905 0-.714.211-1.412.608-2.006L17 13V4m-7 10h2m5-10H9a2 2 0 00-2 2v6a2 2 0 002 2h2.5"
+                    />
                   </svg>
                 </button>
                 <span className="text-sm text-gray-600">{comment.dislikes}</span>
@@ -374,7 +386,7 @@ export const CommentSystem: React.FC<CommentSystemProps> = ({
               {/* Delete button */}
               {canEdit && (
                 <button
-                  onClick={() => handleDeleteComment(comment.id)}
+                  onClick={() => void handleDeleteComment(comment.id)}
                   className="text-sm text-red-600 hover:text-red-700 transition-colors"
                 >
                   Delete
@@ -395,7 +407,7 @@ export const CommentSystem: React.FC<CommentSystemProps> = ({
                 <div className="flex items-center space-x-2">
                   <Button
                     size="sm"
-                    onClick={() => handleSubmitReply(comment.id)}
+                    onClick={() => void handleSubmitReply(comment.id)}
                     disabled={!replyContent.trim() || isSubmitting}
                     loading={isSubmitting}
                   >
@@ -439,7 +451,7 @@ export const CommentSystem: React.FC<CommentSystemProps> = ({
         
         <select
           value={sortOrder}
-          onChange={(e) => setSortOrder(e.target.value as any)}
+          onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)}
           className="text-sm border border-gray-300 rounded px-3 py-1 focus:ring-blue-500 focus:border-blue-500"
         >
           <option value="popular">Most Popular</option>
@@ -460,7 +472,7 @@ export const CommentSystem: React.FC<CommentSystemProps> = ({
           />
           <div className="flex justify-end">
             <Button
-              onClick={handleSubmitComment}
+              onClick={() => void handleSubmitComment()}
               disabled={!newComment.trim() || isSubmitting}
               loading={isSubmitting}
             >
@@ -481,8 +493,14 @@ export const CommentSystem: React.FC<CommentSystemProps> = ({
       <div className="space-y-4">
         {sortedComments.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            <svg
+              className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+              />
             </svg>
             <p>No comments yet. Be the first to share your thoughts!</p>
           </div>

@@ -1,18 +1,54 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { Play, Save, Share, Code, FileText, Settings, Users, Clock, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Layout from '../../components/Layout/Layout';
+import { Play, Save, Share, Code, FileText, Settings, Users, Clock, Star } from 'lucide-react';
+import { useRouter } from 'next/router';
+import React, { useCallback, useEffect, useState } from 'react';
+
 import CodeEditor from '../../components/Code/CodeEditor';
+import Layout from '../../components/Layout/Layout';
 import { useAuth } from '../../hooks/useAuth';
-import { codeService } from '../../services/api';
-import { CodeSnippet } from '../../types';
+import { apiService, codeService } from '../../services/api';
+import type { CodeSnippet } from '../../types';
+import { getErrorMessage } from '../../utils/errors';
 
-interface CodePlaygroundProps {}
+interface EditorPreferences {
+  theme: 'vs' | 'vs-dark' | 'hc-black';
+  fontSize: number;
+  tabSize: number;
+  wordWrap: boolean;
+  showLineNumbers: boolean;
+}
 
-const CodePlayground: React.FC<CodePlaygroundProps> = () => {
+const DEFAULT_PREFERENCES: EditorPreferences = {
+  theme: 'vs-dark',
+  fontSize: 14,
+  tabSize: 4,
+  wordWrap: true,
+  showLineNumbers: true,
+};
+
+const SETTINGS_KEY = 'codeEditorSettings';
+
+const loadEditorPreferences = (): EditorPreferences => {
+  try {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    if (!saved) return DEFAULT_PREFERENCES;
+    const parsed: unknown = JSON.parse(saved);
+    return typeof parsed === 'object' && parsed !== null
+      ? { ...DEFAULT_PREFERENCES, ...(parsed as Partial<EditorPreferences>) }
+      : DEFAULT_PREFERENCES;
+  } catch {
+    return DEFAULT_PREFERENCES;
+  }
+};
+
+interface ExecuteResponse {
+  output?: string;
+  error?: string;
+}
+
+const CodePlayground: React.FC = () => {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [code, setCode] = useState(`#include <iostream>
 using namespace std;
 
@@ -25,65 +61,48 @@ int main() {
   const [isSaving, setIsSaving] = useState(false);
   const [recentSnippets, setRecentSnippets] = useState<CodeSnippet[]>([]);
   const [popularSnippets, setPopularSnippets] = useState<CodeSnippet[]>([]);
-  const [settings, setSettings] = useState({
-    theme: 'dark',
-    fontSize: 14,
-    tabSize: 4,
-    wordWrap: true,
-    showLineNumbers: true
-  });
+  const [settings, setSettings] = useState<EditorPreferences>(DEFAULT_PREFERENCES);
 
-  useEffect(() => {
-    fetchRecentSnippets();
-    fetchPopularSnippets();
-    loadEditorSettings();
-  }, [isAuthenticated]);
-
-  const fetchRecentSnippets = async () => {
+  const fetchRecentSnippets = useCallback(async () => {
     if (!isAuthenticated) return;
-    
     try {
-      const response = await codeService.getRecentSnippets();
+      const response = await apiService.get<CodeSnippet[]>('/code/snippets/recent');
       setRecentSnippets(response.data);
     } catch (error) {
-      console.error('Error fetching recent snippets:', error);
+      console.error('Error fetching recent snippets:', getErrorMessage(error));
     }
-  };
+  }, [isAuthenticated]);
 
-  const fetchPopularSnippets = async () => {
+  const fetchPopularSnippets = useCallback(async () => {
     try {
-      const response = await codeService.getPopularSnippets();
+      const response = await apiService.get<CodeSnippet[]>('/code/snippets/popular');
       setPopularSnippets(response.data);
     } catch (error) {
-      console.error('Error fetching popular snippets:', error);
+      console.error('Error fetching popular snippets:', getErrorMessage(error));
     }
-  };
+  }, []);
 
-  const loadEditorSettings = () => {
-    const savedSettings = localStorage.getItem('codeEditorSettings');
-    if (savedSettings) {
-      setSettings({ ...settings, ...JSON.parse(savedSettings) });
-    }
-  };
-
-  const saveEditorSettings = (newSettings: typeof settings) => {
-    setSettings(newSettings);
-    localStorage.setItem('codeEditorSettings', JSON.stringify(newSettings));
-  };
+  useEffect(() => {
+    void fetchRecentSnippets();
+    void fetchPopularSnippets();
+    setSettings(loadEditorPreferences());
+  }, [fetchRecentSnippets, fetchPopularSnippets]);
 
   const handleRunCode = async () => {
     setIsRunning(true);
     setOutput('Running...');
-    
+
     try {
-      const response = await codeService.executeCode({
+      const response = await apiService.post<ExecuteResponse>('/code/execute', {
         code,
         language: 'cpp',
-        input: ''
+        input: '',
       });
-      setOutput(response.data.output || response.data.error || 'No output');
+      const { output: stdout, error: stderr } = response.data;
+      // Empty strings should fall through to the next source, so `??` is not appropriate.
+      setOutput(stdout ? stdout : stderr ? stderr : 'No output');
     } catch (error) {
-      setOutput(`Error: ${(error as Error).message}`);
+      setOutput(`Error: ${getErrorMessage(error)}`);
     } finally {
       setIsRunning(false);
     }
@@ -91,11 +110,12 @@ int main() {
 
   const handleSaveSnippet = async () => {
     if (!isAuthenticated) {
-      router.push('/auth/login');
+      await router.push('/auth/login');
       return;
     }
 
-    const title = prompt('Enter a title for your snippet:');
+    // eslint-disable-next-line no-alert -- lightweight title prompt; no modal component yet
+    const title = window.prompt('Enter a title for your snippet:');
     if (!title) return;
 
     setIsSaving(true);
@@ -105,12 +125,11 @@ int main() {
         code,
         language: 'cpp',
         description: '',
-        isPublic: false
+        isPublic: false,
       });
       await fetchRecentSnippets();
     } catch (error) {
-      console.error('Error saving snippet:', error);
-      alert('Failed to save snippet');
+      setOutput(`Failed to save snippet: ${getErrorMessage(error)}`);
     } finally {
       setIsSaving(false);
     }
@@ -118,21 +137,20 @@ int main() {
 
   const handleShareCode = async () => {
     try {
-      const response = await codeService.shareCode({ code, language: 'cpp' });
+      const response = await apiService.post<{ shareId: string }>('/code/share', {
+        code,
+        language: 'cpp',
+      });
       const shareUrl = `${window.location.origin}/code/shared/${response.data.shareId}`;
-      
-      if (navigator.share) {
-        await navigator.share({
-          title: 'Check out my C++ code',
-          url: shareUrl
-        });
+
+      if (typeof navigator.share === 'function') {
+        await navigator.share({ title: 'Check out my C++ code', url: shareUrl });
       } else {
         await navigator.clipboard.writeText(shareUrl);
-        alert('Share link copied to clipboard!');
+        setOutput(`Share link copied to clipboard: ${shareUrl}`);
       }
     } catch (error) {
-      console.error('Error sharing code:', error);
-      alert('Failed to share code');
+      setOutput(`Failed to share code: ${getErrorMessage(error)}`);
     }
   };
 
@@ -157,7 +175,7 @@ int main() {
               
               <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => router.push('/code/snippets')}
+                  onClick={() => void router.push('/code/snippets')}
                   className="flex items-center px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
                 >
                   <FileText className="h-5 w-5 mr-2" />
@@ -165,7 +183,7 @@ int main() {
                 </button>
                 
                 <button
-                  onClick={() => router.push('/code/collaborate')}
+                  onClick={() => void router.push('/code/collaborate')}
                   className="flex items-center px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
                 >
                   <Users className="h-5 w-5 mr-2" />
@@ -199,7 +217,7 @@ int main() {
                   
                   <div className="flex items-center space-x-3">
                     <button
-                      onClick={handleSaveSnippet}
+                      onClick={() => void handleSaveSnippet()}
                       disabled={isSaving || !isAuthenticated}
                       className="flex items-center px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors disabled:opacity-50"
                     >
@@ -208,7 +226,7 @@ int main() {
                     </button>
                     
                     <button
-                      onClick={handleShareCode}
+                      onClick={() => void handleShareCode()}
                       className="flex items-center px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
                     >
                       <Share className="h-5 w-5 mr-2" />
@@ -216,7 +234,7 @@ int main() {
                     </button>
                     
                     <button
-                      onClick={handleRunCode}
+                      onClick={() => void handleRunCode()}
                       disabled={isRunning}
                       className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
                     >
@@ -241,7 +259,7 @@ int main() {
                       theme={settings.theme}
                       fontSize={settings.fontSize}
                       tabSize={settings.tabSize}
-                      wordWrap={settings.wordWrap}
+                      wordWrap={settings.wordWrap ? 'on' : 'off'}
                       showLineNumbers={settings.showLineNumbers}
                     />
                   </div>
@@ -327,10 +345,11 @@ int main() {
                   </h3>
                   <div className="space-y-3">
                     {recentSnippets.slice(0, 5).map((snippet) => (
-                      <div
+                      <button
                         key={snippet.id}
+                        type="button"
                         onClick={() => handleLoadSnippet(snippet)}
-                        className="cursor-pointer p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                        className="block w-full text-left cursor-pointer p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                       >
                         <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
                           {snippet.title}
@@ -338,11 +357,11 @@ int main() {
                         <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                           {new Date(snippet.createdAt).toLocaleDateString()}
                         </p>
-                      </div>
+                      </button>
                     ))}
                   </div>
                   <button
-                    onClick={() => router.push('/code/snippets')}
+                    onClick={() => void router.push('/code/snippets')}
                     className="w-full mt-3 text-center text-sm text-blue-600 hover:text-blue-700 transition-colors"
                   >
                     View All Snippets
@@ -363,26 +382,27 @@ int main() {
                 </h3>
                 <div className="space-y-3">
                   {popularSnippets.slice(0, 5).map((snippet) => (
-                    <div
+                    <button
                       key={snippet.id}
+                      type="button"
                       onClick={() => handleLoadSnippet(snippet)}
-                      className="cursor-pointer p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                      className="block w-full text-left cursor-pointer p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                     >
                       <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
                         {snippet.title}
                       </h4>
                       <div className="flex items-center justify-between mt-1">
                         <p className="text-xs text-gray-600 dark:text-gray-400">
-                          by {snippet.author?.username || 'Anonymous'}
+                          by {snippet.author?.username ?? 'Anonymous'}
                         </p>
                         <div className="flex items-center">
                           <Star className="h-3 w-3 text-yellow-500 mr-1" />
                           <span className="text-xs text-gray-600 dark:text-gray-400">
-                            {snippet.likes || 0}
+                            {snippet.likes ?? 0}
                           </span>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </motion.div>

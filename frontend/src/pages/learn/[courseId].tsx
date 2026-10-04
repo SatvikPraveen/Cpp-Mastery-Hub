@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { GetServerSideProps } from 'next';
-import { ArrowLeft, Play, CheckCircle, Clock, Users, Star, BookOpen, Target } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { ArrowLeft, Play, CheckCircle, Clock, Users, Star, BookOpen, Target } from 'lucide-react';
+import { GetServerSideProps } from 'next';
+import { useRouter } from 'next/router';
+import React, { useState, useEffect } from 'react';
+
 import Layout from '../../components/Layout/Layout';
 import LessonCard from '../../components/Learning/LessonCard';
 import PrerequisiteCard from '../../components/Learning/PrerequisiteCard';
 import { useAuth } from '../../hooks/useAuth';
-import { courseService } from '../../services/api';
+import { apiService } from '../../services/api';
 import { Course, Lesson, UserProgress, Prerequisite } from '../../types';
 
 interface CoursePageProps {
@@ -16,7 +17,7 @@ interface CoursePageProps {
 
 const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [course, setCourse] = useState<Course | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
@@ -27,7 +28,7 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
 
   useEffect(() => {
     if (courseId) {
-      fetchCourseData();
+      void fetchCourseData();
     }
   }, [courseId, isAuthenticated]);
 
@@ -35,9 +36,9 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
     try {
       setLoading(true);
       const [courseResponse, lessonsResponse, prerequisitesResponse] = await Promise.all([
-        courseService.getCourse(courseId),
-        courseService.getCourseLessons(courseId),
-        courseService.getCoursePrerequisites(courseId)
+        apiService.get<Course>(`/courses/${courseId}`),
+        apiService.get<Lesson[]>(`/courses/${courseId}/lessons`),
+        apiService.get<Prerequisite[]>(`/courses/${courseId}/prerequisites`),
       ]);
 
       setCourse(courseResponse.data);
@@ -46,7 +47,9 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
 
       if (isAuthenticated) {
         try {
-          const progressResponse = await courseService.getUserCourseProgress(courseId);
+          const progressResponse = await apiService.get<UserProgress>(
+            `/courses/${courseId}/progress`
+          );
           setUserProgress(progressResponse.data);
         } catch (err) {
           // User not enrolled yet
@@ -63,13 +66,13 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
 
   const handleEnrollment = async () => {
     if (!isAuthenticated) {
-      router.push('/auth/login');
+      void router.push('/auth/login');
       return;
     }
 
     try {
       setEnrolling(true);
-      await courseService.enrollInCourse(courseId);
+      await apiService.post(`/courses/${courseId}/enroll`);
       await fetchCourseData(); // Refresh data after enrollment
     } catch (err) {
       console.error('Error enrolling in course:', err);
@@ -79,7 +82,7 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
   };
 
   const handleLessonClick = (lessonId: string) => {
-    router.push(`/learn/${courseId}/${lessonId}`);
+    void router.push(`/learn/${courseId}/${lessonId}`);
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -103,13 +106,13 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
         </div>
       </Layout>
     );
   }
 
-  if (error || !course) {
+  if (error !== null || !course) {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
@@ -118,10 +121,10 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
               Course Not Found
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {error || 'The course you are looking for does not exist.'}
+              {error ?? 'The course you are looking for does not exist.'}
             </p>
             <button
-              onClick={() => router.push('/learn')}
+              onClick={() => void router.push('/learn')}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Back to Learning Hub
@@ -142,7 +145,7 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
           className="mb-6"
         >
           <button
-            onClick={() => router.push('/learn')}
+            onClick={() => void router.push('/learn')}
             className="flex items-center text-blue-600 hover:text-blue-700 transition-colors mb-4"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
@@ -224,7 +227,7 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
                         <div
                           className="bg-blue-600 h-2 rounded-full transition-all duration-500"
                           style={{ width: `${calculateProgress()}%` }}
-                        ></div>
+                        />
                       </div>
                     </div>
                   )}
@@ -232,14 +235,14 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
                   {/* Action Button */}
                   {!isAuthenticated ? (
                     <button
-                      onClick={() => router.push('/auth/login')}
+                      onClick={() => void router.push('/auth/login')}
                       className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium"
                     >
                       Sign In to Enroll
                     </button>
                   ) : !userProgress ? (
                     <button
-                      onClick={handleEnrollment}
+                      onClick={() => void handleEnrollment()}
                       disabled={enrolling}
                       className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -281,7 +284,7 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
                     key={lesson.id}
                     lesson={lesson}
                     index={index + 1}
-                    isCompleted={userProgress?.completedLessons?.includes(lesson.id) || false}
+                    isCompleted={userProgress?.completedLessons?.includes(lesson.id) ?? false}
                     isLocked={!userProgress && index > 0}
                     onClick={() => userProgress && handleLessonClick(lesson.id)}
                   />
@@ -331,7 +334,7 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
                     <PrerequisiteCard
                       key={prerequisite.id}
                       prerequisite={prerequisite}
-                      onClick={() => router.push(`/learn/${prerequisite.courseId}`)}
+                      onClick={() => void router.push(`/learn/${prerequisite.courseId}`)}
                     />
                   ))}
                 </div>
@@ -380,14 +383,12 @@ const CoursePage: React.FC<CoursePageProps> = ({ courseId }) => {
   );
 };
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { courseId } = context.params!;
-  
-  return {
-    props: {
-      courseId: courseId as string,
-    },
-  };
+export const getServerSideProps: GetServerSideProps<CoursePageProps> = (context) => {
+  const courseId = context.params?.courseId;
+  if (typeof courseId !== 'string') {
+    return Promise.resolve({ notFound: true });
+  }
+  return Promise.resolve({ props: { courseId } });
 };
 
 export default CoursePage;

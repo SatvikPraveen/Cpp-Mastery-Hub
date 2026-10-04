@@ -1,7 +1,3 @@
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
-import { cn } from '@/utils/cn';
 import { 
   Home, 
   Code, 
@@ -13,15 +9,20 @@ import {
   ChevronRight,
   Play,
   Brain,
-  MessageCircle,
   BarChart3
 } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import React from 'react';
+
 import { Button } from '@/components/UI/Button';
+import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/utils/cn';
+import { getUserDisplayName, getUserInitials } from '@/utils/helpers';
 
 interface SidebarProps {
-  collapsed?: boolean;
-  onToggle?: () => void;
+  collapsed?: boolean | undefined;
+  onToggle?: () => void | undefined;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
@@ -83,14 +84,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   const isActive = (href: string) => {
-    return router.pathname === href || router.pathname.startsWith(href + '/');
+    return router.pathname === href || router.pathname.startsWith(`${href}/`);
   };
 
   return (
-    <div className={cn(
+    <div
+      className={cn(
       'flex flex-col h-full bg-background border-r border-border transition-all duration-300',
       collapsed ? 'w-16' : 'w-64'
-    )}>
+    )}
+    >
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         {!collapsed && (
@@ -134,10 +137,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               )}
               title={collapsed ? item.title : undefined}
             >
-              <Icon className={cn(
+              <Icon
+                className={cn(
                 'h-5 w-5',
                 !collapsed && 'mr-3'
-              )} />
+              )}
+              />
               {!collapsed && (
                 <div className="flex-1">
                   <div className="text-foreground">{item.title}</div>
@@ -162,12 +167,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           >
             <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-              {user.firstName[0]}{user.lastName[0]}
+              {getUserInitials(user)}
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium text-foreground truncate">
-                  {user.firstName} {user.lastName}
+                  {getUserDisplayName(user)}
                 </div>
                 <div className="text-xs text-muted-foreground truncate">
                   {user.email}

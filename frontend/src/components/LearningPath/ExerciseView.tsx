@@ -1,72 +1,78 @@
-import React, { useState, useEffect } from 'react';
+import { Play, CheckCircle, AlertCircle, Clock, Target, Lightbulb, RotateCcw } from 'lucide-react';
+import React, { useState } from 'react';
+
+import CodeEditor from '@/components/Code/CodeEditor';
 import { Button } from '@/components/UI/Button';
-import { CodeEditor } from '@/components/CodeEditor/CodeEditor';
-import { ExecutionOutput } from '@/components/CodeEditor/ExecutionOutput';
-import { 
-  Play, 
-  CheckCircle, 
-  AlertCircle, 
-  Clock, 
-  Target,
-  Lightbulb,
-  RotateCcw
-} from 'lucide-react';
-import { Exercise, TestCase, SubmissionResult } from '@/types';
-import { apiService } from '@/services/api';
 import { useCodeExecution } from '@/hooks/useCodeExecution';
+import { apiService } from '@/services/api';
+import { Exercise, SkillLevel, SubmissionResult, TestCase } from '@/types';
+import { getErrorMessage } from '@/utils/errors';
+
+const difficultyClasses: Record<SkillLevel, string> = {
+  [SkillLevel.BEGINNER]: 'bg-green-100 text-green-800',
+  [SkillLevel.INTERMEDIATE]: 'bg-yellow-100 text-yellow-800',
+  [SkillLevel.ADVANCED]: 'bg-red-100 text-red-800',
+  [SkillLevel.EXPERT]: 'bg-purple-100 text-purple-800',
+};
 
 interface ExerciseViewProps {
   exercise: Exercise;
   onComplete?: (success: boolean) => void;
 }
 
-export const ExerciseView: React.FC<ExerciseViewProps> = ({
-  exercise,
-  onComplete
-}) => {
-  const [userCode, setUserCode] = useState(exercise.starterCode || '');
+export const ExerciseView: React.FC<ExerciseViewProps> = ({ exercise, onComplete }) => {
+  const [userCode, setUserCode] = useState(exercise.starterCode);
   const [testResults, setTestResults] = useState<TestCase[]>([]);
-  const [submission, setSubmission] = useState<SubmissionResult | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showHints, setShowHints] = useState(false);
   const [currentHint, setCurrentHint] = useState(0);
-  
-  const { executeCode, isExecuting, output } = useCodeExecution();
+
+  const { executeCode, isExecuting, result, error: executionError } = useCodeExecution();
+  const hints = exercise.hints ?? [];
 
   const runTests = async () => {
+    setIsSubmitting(true);
+    setSubmitError(null);
     try {
-      const result = await apiService.post(`/api/exercises/${exercise.id}/submit`, {
-        code: userCode
-      });
-      
-      setSubmission(result.data);
-      setTestResults(result.data.testResults);
-      
-      const allPassed = result.data.testResults.every((test: TestCase) => test.passed);
-      if (allPassed) {
+      const response = await apiService.post<SubmissionResult>(
+        `/api/exercises/${exercise.id}/submit`,
+        { code: userCode }
+      );
+      const tests = response.data.testResults;
+      setTestResults(tests);
+
+      if (tests.length > 0 && tests.every((test) => test.passed)) {
         onComplete?.(true);
       }
     } catch (error) {
-      console.error('Failed to run tests:', error);
+      setSubmitError(getErrorMessage(error, 'Failed to run tests'));
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const runCode = () => {
-    executeCode(userCode, 'cpp');
+  const runCode = async () => {
+    try {
+      await executeCode(userCode, { language: 'cpp' });
+    } catch {
+      // The hook already exposes the error via `executionError`.
+    }
   };
 
   const resetCode = () => {
-    setUserCode(exercise.starterCode || '');
+    setUserCode(exercise.starterCode);
     setTestResults([]);
-    setSubmission(null);
+    setSubmitError(null);
   };
 
   const nextHint = () => {
-    if (currentHint < exercise.hints.length - 1) {
+    if (currentHint < hints.length - 1) {
       setCurrentHint(currentHint + 1);
     }
   };
 
-  const allTestsPassed = testResults.length > 0 && testResults.every(test => test.passed);
+  const allTestsPassed = testResults.length > 0 && testResults.every((test) => test.passed);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
@@ -76,22 +82,27 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-bold text-foreground">{exercise.title}</h2>
             <div className="flex items-center space-x-2">
-              <span className={`px-2 py-1 rounded text-xs font-medium ${
-                exercise.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
-                exercise.difficulty === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-red-100 text-red-800'
-              }`}>
-                {exercise.difficulty}
+              <span
+                className={`px-2 py-1 rounded text-xs font-medium ${
+                  difficultyClasses[exercise.difficulty]
+                }`}
+              >
+                {exercise.difficulty.charAt(0) + exercise.difficulty.slice(1).toLowerCase()}
               </span>
               <div className="flex items-center space-x-1 text-sm text-muted-foreground">
                 <Clock className="h-4 w-4" />
-                <span>{exercise.estimatedTime} min</span>
+                <span>
+                  {exercise.estimatedTime ?? Math.ceil((exercise.timeLimit ?? 0) / 60)} min
+                </span>
               </div>
             </div>
           </div>
 
           <div className="prose dark:prose-invert max-w-none">
-            <div dangerouslySetInnerHTML={{ __html: exercise.description }} />
+            <p className="whitespace-pre-line">{exercise.description}</p>
+            {exercise.instructions && (
+              <p className="whitespace-pre-line mt-4">{exercise.instructions}</p>
+            )}
           </div>
 
           {/* Examples */}
@@ -99,8 +110,11 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({
             <div className="mt-6">
               <h3 className="font-semibold mb-3">Examples</h3>
               <div className="space-y-4">
-                {exercise.examples.map((example, index) => (
-                  <div key={index} className="bg-muted rounded-lg p-4">
+                {exercise.examples.map((example) => (
+                  <div
+                    key={`${example.input}->${example.output}`}
+                    className="bg-muted rounded-lg p-4"
+                  >
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <h4 className="font-medium text-sm text-muted-foreground mb-2">Input:</h4>
@@ -117,7 +131,9 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({
                     </div>
                     {example.explanation && (
                       <div className="mt-3">
-                        <h4 className="font-medium text-sm text-muted-foreground mb-1">Explanation:</h4>
+                        <h4 className="font-medium text-sm text-muted-foreground mb-1">
+                          Explanation:
+                        </h4>
                         <p className="text-sm">{example.explanation}</p>
                       </div>
                     )}
@@ -132,8 +148,8 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({
             <div className="mt-6">
               <h3 className="font-semibold mb-3">Constraints</h3>
               <ul className="text-sm space-y-1">
-                {exercise.constraints.map((constraint, index) => (
-                  <li key={index} className="flex items-start space-x-2">
+                {exercise.constraints.map((constraint) => (
+                  <li key={constraint} className="flex items-start space-x-2">
                     <span className="text-muted-foreground">•</span>
                     <span>{constraint}</span>
                   </li>
@@ -143,7 +159,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({
           )}
 
           {/* Hints */}
-          {exercise.hints && exercise.hints.length > 0 && (
+          {hints.length > 0 && (
             <div className="mt-6">
               <Button
                 variant="outline"
@@ -152,21 +168,21 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({
               >
                 {showHints ? 'Hide Hints' : 'Show Hints'}
               </Button>
-              
+
               {showHints && (
                 <div className="mt-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium text-yellow-800 dark:text-yellow-200">
-                      Hint {currentHint + 1} of {exercise.hints.length}
+                      Hint {currentHint + 1} of {hints.length}
                     </h4>
-                    {currentHint < exercise.hints.length - 1 && (
+                    {currentHint < hints.length - 1 && (
                       <Button size="sm" variant="outline" onClick={nextHint}>
                         Next Hint
                       </Button>
                     )}
                   </div>
                   <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                    {exercise.hints[currentHint]}
+                    {hints[currentHint]}
                   </p>
                 </div>
               )}
@@ -180,17 +196,19 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({
             <h3 className="font-semibold mb-4 flex items-center space-x-2">
               <Target className="h-5 w-5" />
               <span>Test Results</span>
-              {allTestsPassed && (
-                <CheckCircle className="h-5 w-5 text-green-600" />
-              )}
+              {allTestsPassed && <CheckCircle className="h-5 w-5 text-green-600" />}
             </h3>
-            
+
             <div className="space-y-3">
               {testResults.map((test, index) => (
-                <div key={index} className={`border rounded-lg p-3 ${
-                  test.passed ? 'border-green-200 bg-green-50 dark:bg-green-900/20' :
-                  'border-red-200 bg-red-50 dark:bg-red-900/20'
-                }`}>
+                <div
+                  key={test.id}
+                  className={`border rounded-lg p-3 ${
+                    test.passed
+                      ? 'border-green-200 bg-green-50 dark:bg-green-900/20'
+                      : 'border-red-200 bg-red-50 dark:bg-red-900/20'
+                  }`}
+                >
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-sm">Test Case {index + 1}</span>
                     <div className="flex items-center space-x-2">
@@ -199,14 +217,16 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({
                       ) : (
                         <AlertCircle className="h-4 w-4 text-red-600" />
                       )}
-                      <span className={`text-sm font-medium ${
-                        test.passed ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <span
+                        className={`text-sm font-medium ${
+                          test.passed ? 'text-green-600' : 'text-red-600'
+                        }`}
+                      >
                         {test.passed ? 'Passed' : 'Failed'}
                       </span>
                     </div>
                   </div>
-                  
+
                   {!test.passed && (
                     <div className="space-y-2 text-sm">
                       <div>
@@ -236,7 +256,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({
                   </span>
                 </div>
                 <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                  You've successfully solved this exercise. Great job!
+                  You&apos;ve successfully solved this exercise. Great job!
                 </p>
               </div>
             )}
@@ -261,7 +281,7 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={runCode}
+                onClick={() => void runCode()}
                 loading={isExecuting}
                 leftIcon={<Play className="h-4 w-4" />}
               >
@@ -270,27 +290,50 @@ export const ExerciseView: React.FC<ExerciseViewProps> = ({
               <Button
                 variant="primary"
                 size="sm"
-                onClick={runTests}
+                onClick={() => void runTests()}
+                loading={isSubmitting}
                 leftIcon={<Target className="h-4 w-4" />}
               >
                 Submit
               </Button>
             </div>
           </div>
-          
-          <div className="h-96">
-            <CodeEditor
-              value={userCode}
-              onChange={setUserCode}
-              language="cpp"
-              theme="vs-dark"
-            />
-          </div>
+
+          <CodeEditor
+            value={userCode}
+            onChange={setUserCode}
+            language="cpp"
+            theme="vs-dark"
+            height="24rem"
+          />
         </div>
 
+        {submitError && (
+          <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+            {submitError}
+          </div>
+        )}
+
         {/* Output */}
-        {output && (
-          <ExecutionOutput output={output} />
+        {(result ?? executionError) && (
+          <div className="bg-gray-900 rounded-lg p-4 font-mono text-sm">
+            <div className="flex items-center justify-between mb-2 text-xs text-gray-400">
+              <span>Output</span>
+              {result && (
+                <span>
+                  exit {result.exitCode} · {result.executionTime} ms
+                </span>
+              )}
+            </div>
+            {result?.output && (
+              <pre className="text-green-400 whitespace-pre-wrap">{result.output}</pre>
+            )}
+            {(result?.error ?? executionError) && (
+              <pre className="text-red-400 whitespace-pre-wrap">
+                {result?.error ?? executionError}
+              </pre>
+            )}
+          </div>
         )}
       </div>
     </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import { Badge } from '../UI/Badge';
 
 interface FilterOption {
@@ -39,8 +40,8 @@ interface SearchFiltersProps {
     authors?: FilterOption[];
     tags?: FilterOption[];
   };
-  showAdvanced?: boolean;
-  onToggleAdvanced?: () => void;
+  showAdvanced?: boolean | undefined;
+  onToggleAdvanced?: () => void | undefined;
 }
 
 export const SearchFilters: React.FC<SearchFiltersProps> = ({
@@ -94,9 +95,9 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
       filters.language.length +
       filters.author.length +
       filters.tags.length +
-      (filters.dateRange.from || filters.dateRange.to ? 1 : 0) +
-      (filters.rating.min || filters.rating.max ? 1 : 0) +
-      (filters.duration.min || filters.duration.max ? 1 : 0)
+      (filters.dateRange.from ?? filters.dateRange.to ? 1 : 0) +
+      (filters.rating.min ?? filters.rating.max ? 1 : 0) +
+      (filters.duration.min ?? filters.duration.max ? 1 : 0)
     );
   };
 
@@ -132,12 +133,12 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
   };
 
   const options = {
-    types: availableOptions.types || defaultOptions.types,
-    difficulties: availableOptions.difficulties || defaultOptions.difficulties,
-    categories: availableOptions.categories || defaultOptions.categories,
-    languages: availableOptions.languages || defaultOptions.languages,
-    authors: availableOptions.authors || [],
-    tags: availableOptions.tags || []
+    types: availableOptions.types ?? defaultOptions.types,
+    difficulties: availableOptions.difficulties ?? defaultOptions.difficulties,
+    categories: availableOptions.categories ?? defaultOptions.categories,
+    languages: availableOptions.languages ?? defaultOptions.languages,
+    authors: availableOptions.authors ?? [],
+    tags: availableOptions.tags ?? []
   };
 
   const renderCheckboxGroup = (
@@ -173,8 +174,8 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
     filterKey: 'rating' | 'duration',
     min: number,
     max: number,
-    step: number = 1,
-    unit: string = ''
+    step = 1,
+    unit = ''
   ) => (
     <div className="space-y-3">
       <h4 className="font-medium text-gray-900">{title}</h4>
@@ -186,7 +187,7 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
             min={min}
             max={max}
             step={step}
-            value={localFilters[filterKey].min || ''}
+            value={localFilters[filterKey].min ?? ''}
             onChange={(e) => {
               const value = e.target.value ? parseFloat(e.target.value) : undefined;
               updateFilter(filterKey, { ...localFilters[filterKey], min: value });
@@ -202,7 +203,7 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
             min={min}
             max={max}
             step={step}
-            value={localFilters[filterKey].max || ''}
+            value={localFilters[filterKey].max ?? ''}
             onChange={(e) => {
               const value = e.target.value ? parseFloat(e.target.value) : undefined;
               updateFilter(filterKey, { ...localFilters[filterKey], max: value });
@@ -223,7 +224,7 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
           <label className="block text-xs text-gray-500 mb-1">From</label>
           <input
             type="date"
-            value={localFilters.dateRange.from || ''}
+            value={localFilters.dateRange.from ?? ''}
             onChange={(e) => {
               updateFilter('dateRange', { 
                 ...localFilters.dateRange, 
@@ -237,7 +238,7 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
           <label className="block text-xs text-gray-500 mb-1">To</label>
           <input
             type="date"
-            value={localFilters.dateRange.to || ''}
+            value={localFilters.dateRange.to ?? ''}
             onChange={(e) => {
               updateFilter('dateRange', { 
                 ...localFilters.dateRange, 
@@ -296,7 +297,7 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
                 removable 
                 onRemove={() => toggleArrayFilter('type', type)}
               >
-                {options.types.find(t => t.value === type)?.label || type}
+                {options.types.find(t => t.value === type)?.label ?? type}
               </Badge>
             ))}
             {filters.difficulty.map(difficulty => (
@@ -307,7 +308,7 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
                 removable 
                 onRemove={() => toggleArrayFilter('difficulty', difficulty)}
               >
-                {options.difficulties.find(d => d.value === difficulty)?.label || difficulty}
+                {options.difficulties.find(d => d.value === difficulty)?.label ?? difficulty}
               </Badge>
             ))}
             {filters.category.map(category => (
@@ -318,7 +319,7 @@ export const SearchFilters: React.FC<SearchFiltersProps> = ({
                 removable 
                 onRemove={() => toggleArrayFilter('category', category)}
               >
-                {options.categories.find(c => c.value === category)?.label || category}
+                {options.categories.find(c => c.value === category)?.label ?? category}
               </Badge>
             ))}
             {filters.tags.map(tag => (

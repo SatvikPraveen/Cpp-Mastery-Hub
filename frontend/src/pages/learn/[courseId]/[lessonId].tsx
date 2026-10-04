@@ -1,15 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import { GetServerSideProps } from 'next';
-import { ArrowLeft, ArrowRight, CheckCircle, Play, Code, FileText, Video, Timer } from 'lucide-react';
 import { motion } from 'framer-motion';
-import Layout from '../../../components/Layout/Layout';
+import { ArrowLeft, ArrowRight, CheckCircle, Play, Code, FileText, Video, Timer } from 'lucide-react';
+import { GetServerSideProps } from 'next';
+import { useRouter } from 'next/router';
+import React, { useState, useEffect } from 'react';
+
 import CodeEditor from '../../../components/Code/CodeEditor';
-import VideoPlayer from '../../../components/Learning/VideoPlayer';
+import Layout from '../../../components/Layout/Layout';
 import QuizComponent from '../../../components/Learning/QuizComponent';
+import VideoPlayer from '../../../components/Learning/VideoPlayer';
 import { useAuth } from '../../../hooks/useAuth';
-import { courseService } from '../../../services/api';
+import { apiService } from '../../../services/api';
 import { Lesson, LessonContent, UserProgress, Quiz } from '../../../types';
+import { getErrorMessage } from '../../../utils/errors';
 
 interface LessonPageProps {
   courseId: string;
@@ -18,7 +20,7 @@ interface LessonPageProps {
 
 const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [lessonContent, setLessonContent] = useState<LessonContent | null>(null);
   const [userProgress, setUserProgress] = useState<UserProgress | null>(null);
@@ -29,43 +31,44 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
   const [lessonCompleted, setLessonCompleted] = useState(false);
   const [codeOutput, setCodeOutput] = useState('');
   const [userCode, setUserCode] = useState('');
+  const lessonPath = `/courses/${courseId}/lessons/${lessonId}`;
 
   useEffect(() => {
     if (courseId && lessonId) {
-      fetchLessonData();
+      void fetchLessonData();
     }
   }, [courseId, lessonId, isAuthenticated]);
 
   const fetchLessonData = async () => {
     if (!isAuthenticated) {
-      router.push('/auth/login');
+      void router.push('/auth/login');
       return;
     }
 
     try {
       setLoading(true);
       const [lessonResponse, contentResponse, progressResponse] = await Promise.all([
-        courseService.getLesson(courseId, lessonId),
-        courseService.getLessonContent(courseId, lessonId),
-        courseService.getUserCourseProgress(courseId)
+        apiService.get<Lesson>(`${lessonPath}`),
+        apiService.get<LessonContent>(`${lessonPath}/content`),
+        apiService.get<UserProgress>(`/courses/${courseId}/progress`),
       ]);
 
       setLesson(lessonResponse.data);
       setLessonContent(contentResponse.data);
       setUserProgress(progressResponse.data);
-      setLessonCompleted(progressResponse.data.completedLessons?.includes(lessonId) || false);
+      setLessonCompleted(progressResponse.data.completedLessons?.includes(lessonId) ?? false);
 
       // Load quiz if exists
       if (lessonResponse.data.hasQuiz) {
-        const quizResponse = await courseService.getLessonQuiz(courseId, lessonId);
+        const quizResponse = await apiService.get<Quiz>(`${lessonPath}/quiz`);
         setQuiz(quizResponse.data);
       }
 
       // Load user's saved code
       if (contentResponse.data.codeTemplate) {
         try {
-          const savedCodeResponse = await courseService.getUserLessonCode(courseId, lessonId);
-          setUserCode(savedCodeResponse.data.code || contentResponse.data.codeTemplate);
+          const savedCodeResponse = await apiService.get<{ code?: string }>(`${lessonPath}/code`);
+          setUserCode(savedCodeResponse.data.code ?? contentResponse.data.codeTemplate);
         } catch {
           setUserCode(contentResponse.data.codeTemplate);
         }
@@ -80,11 +83,11 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
 
   const handleCompleteLesson = async () => {
     try {
-      await courseService.markLessonComplete(courseId, lessonId);
+      await apiService.post(`${lessonPath}/complete`);
       setLessonCompleted(true);
       
       // Refresh progress
-      const progressResponse = await courseService.getUserCourseProgress(courseId);
+      const progressResponse = await apiService.get<UserProgress>(`/courses/${courseId}/progress`);
       setUserProgress(progressResponse.data);
     } catch (err) {
       console.error('Error marking lesson complete:', err);
@@ -93,38 +96,37 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
 
   const handleRunCode = async () => {
     try {
-      const response = await courseService.executeCode({
-        code: userCode,
-        language: 'cpp',
-        input: lessonContent?.codeInput || ''
-      });
-      setCodeOutput(response.data.output);
+      const response = await apiService.post<{ output?: string; error?: string }>(
+        '/code/execute',
+        { code: userCode, language: 'cpp', input: lessonContent?.codeInput ?? '' }
+      );
+      setCodeOutput(response.data.output ?? response.data.error ?? '');
     } catch (err) {
-      setCodeOutput('Error executing code: ' + (err as Error).message);
+      setCodeOutput(`Error executing code: ${getErrorMessage(err)}`);
     }
   };
 
   const handleSaveCode = async () => {
     try {
-      await courseService.saveLessonCode(courseId, lessonId, userCode);
+      await apiService.post(`${lessonPath}/code`, { code: userCode });
     } catch (err) {
       console.error('Error saving code:', err);
     }
   };
 
   const handleNextLesson = () => {
-    if (userProgress && userProgress.nextLessonId) {
-      router.push(`/learn/${courseId}/${userProgress.nextLessonId}`);
+    if (userProgress?.nextLessonId) {
+      void router.push(`/learn/${courseId}/${userProgress.nextLessonId}`);
     } else {
-      router.push(`/learn/${courseId}`);
+      void router.push(`/learn/${courseId}`);
     }
   };
 
   const handlePreviousLesson = () => {
-    if (userProgress && userProgress.previousLessonId) {
-      router.push(`/learn/${courseId}/${userProgress.previousLessonId}`);
+    if (userProgress?.previousLessonId) {
+      void router.push(`/learn/${courseId}/${userProgress.previousLessonId}`);
     } else {
-      router.push(`/learn/${courseId}`);
+      void router.push(`/learn/${courseId}`);
     }
   };
 
@@ -141,13 +143,13 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
     return (
       <Layout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
         </div>
       </Layout>
     );
   }
 
-  if (error || !lesson || !lessonContent) {
+  if (error !== null || !lesson || !lessonContent) {
     return (
       <Layout>
         <div className="container mx-auto px-4 py-8">
@@ -156,10 +158,10 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
               Lesson Not Found
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
-              {error || 'The lesson you are looking for does not exist.'}
+              {error ?? 'The lesson you are looking for does not exist.'}
             </p>
             <button
-              onClick={() => router.push(`/learn/${courseId}`)}
+              onClick={() => void router.push(`/learn/${courseId}`)}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
             >
               Back to Course
@@ -179,13 +181,13 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <button
-                  onClick={() => router.push(`/learn/${courseId}`)}
+                  onClick={() => void router.push(`/learn/${courseId}`)}
                   className="flex items-center text-blue-600 hover:text-blue-700 transition-colors"
                 >
                   <ArrowLeft className="h-5 w-5 mr-2" />
                   Back to Course
                 </button>
-                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
+                <div className="h-6 w-px bg-gray-300 dark:bg-gray-600" />
                 <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
                   {lesson.title}
                 </h1>
@@ -257,10 +259,10 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
                       )}
 
                       <div className="prose dark:prose-invert max-w-none">
-                        <div 
-                          dangerouslySetInnerHTML={{ __html: lessonContent.content }}
-                          className="text-gray-700 dark:text-gray-300"
-                        />
+                        {/* Rendered as plain text: no HTML sanitizer is available in this bundle. */}
+                        <div className="text-gray-700 dark:text-gray-300 whitespace-pre-line">
+                          {lessonContent.content}
+                        </div>
                       </div>
 
                       {lessonContent.codeExamples && lessonContent.codeExamples.length > 0 && (
@@ -276,7 +278,7 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
                               <CodeEditor
                                 value={example.code}
                                 language="cpp"
-                                readOnly={true}
+                                readOnly
                                 height="200px"
                               />
                               {example.explanation && (
@@ -303,7 +305,7 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
                           Code Practice
                         </h3>
                         <p className="text-gray-600 dark:text-gray-400">
-                          {lessonContent.codeInstructions || 'Complete the code below according to the lesson requirements.'}
+                          {lessonContent.codeInstructions ?? 'Complete the code below according to the lesson requirements.'}
                         </p>
                       </div>
 
@@ -314,13 +316,13 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
                             <h4 className="font-medium text-gray-900 dark:text-white">Code Editor</h4>
                             <div className="flex space-x-2">
                               <button
-                                onClick={handleSaveCode}
+                                onClick={() => void handleSaveCode()}
                                 className="px-3 py-1 text-sm bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
                               >
                                 Save
                               </button>
                               <button
-                                onClick={handleRunCode}
+                                onClick={() => void handleRunCode()}
                                 className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
                               >
                                 <Play className="h-4 w-4 mr-1" />
@@ -367,7 +369,7 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
                     >
                       <QuizComponent
                         quiz={quiz}
-                        onComplete={(score) => {
+                        onComplete={(score: number) => {
                           console.log('Quiz completed with score:', score);
                         }}
                       />
@@ -390,7 +392,7 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
                 <div className="flex items-center space-x-4">
                   {!lessonCompleted && (
                     <button
-                      onClick={handleCompleteLesson}
+                      onClick={() => void handleCompleteLesson()}
                       className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
                     >
                       <CheckCircle className="h-5 w-5 mr-2" />
@@ -418,17 +420,17 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
                 <div className="mb-3">
                   <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
                     <span>Completion</span>
-                    <span>{userProgress?.progressPercentage || 0}%</span>
+                    <span>{userProgress?.progressPercentage ?? 0}%</span>
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div
                       className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                      style={{ width: `${userProgress?.progressPercentage || 0}%` }}
-                    ></div>
+                      style={{ width: `${userProgress?.progressPercentage ?? 0}%` }}
+                    />
                   </div>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {userProgress?.completedLessons?.length || 0} of {userProgress?.totalLessons || 0} lessons completed
+                  {userProgress?.completedLessons?.length ?? 0} of {userProgress?.totalLessons ?? 0} lessons completed
                 </p>
               </div>
 
@@ -454,15 +456,13 @@ const LessonPage: React.FC<LessonPageProps> = ({ courseId, lessonId }) => {
   );
 };
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { courseId, lessonId } = context.params!;
-  
-  return {
-    props: {
-      courseId: courseId as string,
-      lessonId: lessonId as string,
-    },
-  };
+export const getServerSideProps: GetServerSideProps<LessonPageProps> = (context) => {
+  const courseId = context.params?.courseId;
+  const lessonId = context.params?.lessonId;
+  if (typeof courseId !== 'string' || typeof lessonId !== 'string') {
+    return Promise.resolve({ notFound: true });
+  }
+  return Promise.resolve({ props: { courseId, lessonId } });
 };
 
 export default LessonPage;

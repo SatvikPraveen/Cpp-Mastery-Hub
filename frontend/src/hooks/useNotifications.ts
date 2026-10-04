@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+
 import { NotificationData } from '../components/Notification/Notification';
 
 interface NotificationFilters {
@@ -114,6 +115,12 @@ const notificationAPI = {
   }
 };
 
+type SocketMessage =
+  | { type: 'new_notification'; notification: Omit<NotificationData, 'id' | 'timestamp'> }
+  | { type: 'notification_read'; id: string }
+  | { type: 'notification_deleted'; id: string }
+  | { type: string; id?: string };
+
 export const useNotifications = (): UseNotificationsReturn => {
   const [notifications, setNotifications] = useState<NotificationData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -220,7 +227,7 @@ export const useNotifications = (): UseNotificationsReturn => {
     if (ws) return; // Already connected
 
     try {
-      const websocket = new WebSocket(process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3001/notifications');
+      const websocket = new WebSocket(process.env.NEXT_PUBLIC_WS_URL ?? 'ws://localhost:3001/notifications');
       
       websocket.onopen = () => {
         console.log('Connected to notification WebSocket');
@@ -228,19 +235,19 @@ export const useNotifications = (): UseNotificationsReturn => {
 
       websocket.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
-          
+          const data = JSON.parse(String(event.data)) as SocketMessage;
+
           switch (data.type) {
             case 'new_notification':
-              addNotification(data.notification);
+              if ('notification' in data) addNotification(data.notification);
               break;
             case 'notification_read':
-              setNotifications(prev => 
-                prev.map(n => n.id === data.id ? { ...n, read: true } : n)
+              setNotifications((prev) =>
+                prev.map((n) => (n.id === data.id ? { ...n, read: true } : n))
               );
               break;
             case 'notification_deleted':
-              setNotifications(prev => prev.filter(n => n.id !== data.id));
+              setNotifications((prev) => prev.filter((n) => n.id !== data.id));
               break;
             default:
               console.log('Unknown WebSocket message type:', data.type);
@@ -284,7 +291,7 @@ export const useNotifications = (): UseNotificationsReturn => {
 
   // Initial fetch on mount
   useEffect(() => {
-    fetchNotifications();
+    void fetchNotifications();
   }, [fetchNotifications]);
 
   // Cleanup WebSocket on unmount
@@ -309,7 +316,7 @@ export const useNotifications = (): UseNotificationsReturn => {
   useEffect(() => {
     // Request notification permission if not already granted
     if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+      void Notification.requestPermission();
     }
   }, []);
 

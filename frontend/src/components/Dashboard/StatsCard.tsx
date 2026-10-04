@@ -1,21 +1,21 @@
 'use client';
 
-import React from 'react';
 import { motion } from 'framer-motion';
 import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react';
+import React from 'react';
 
 interface StatsCardProps {
   title: string;
   value: number | string;
-  unit?: string;
-  total?: number;
+  unit?: string | undefined;
+  total?: number | undefined;
   icon: LucideIcon;
   color: string;
   bgColor: string;
-  change?: number;
-  changeType?: 'increase' | 'decrease';
-  percentage?: number;
-  isLoading?: boolean;
+  change?: number | undefined;
+  changeType?: 'increase' | 'decrease' | undefined;
+  percentage?: number | undefined;
+  isLoading?: boolean | undefined;
 }
 
 const StatsCard: React.FC<StatsCardProps> = ({
@@ -53,11 +53,11 @@ const StatsCard: React.FC<StatsCardProps> = ({
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
         <div className="animate-pulse">
           <div className="flex items-center justify-between mb-4">
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
-            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-24" />
+            <div className="h-8 w-8 bg-gray-200 dark:bg-gray-700 rounded-lg" />
           </div>
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-20 mb-2"></div>
-          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16"></div>
+          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-20 mb-2" />
+          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16" />
         </div>
       </div>
     );

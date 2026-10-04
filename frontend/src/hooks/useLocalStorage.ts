@@ -188,21 +188,21 @@ export const useLocalStorageObject = <T extends Record<string, any>>(
   });
 };
 
-export const useLocalStorageString = (key: string, initialValue: string = '') => {
+export const useLocalStorageString = (key: string, initialValue = '') => {
   return useLocalStorage(key, initialValue, {
     serialize: (value) => value,
     deserialize: (value) => value
   });
 };
 
-export const useLocalStorageNumber = (key: string, initialValue: number = 0) => {
+export const useLocalStorageNumber = (key: string, initialValue = 0) => {
   return useLocalStorage(key, initialValue, {
     serialize: (value) => value.toString(),
     deserialize: (value) => parseFloat(value) || initialValue
   });
 };
 
-export const useLocalStorageBoolean = (key: string, initialValue: boolean = false) => {
+export const useLocalStorageBoolean = (key: string, initialValue = false) => {
   return useLocalStorage(key, initialValue, {
     serialize: (value) => value.toString(),
     deserialize: (value) => value === 'true'
@@ -251,7 +251,7 @@ export const useLocalStorageArray = <T>(key: string, initialValue: T[] = []) => 
 export const useLocalStorageWithExpiry = <T>(
   key: string,
   initialValue: T,
-  expiryInMinutes: number = 60
+  expiryInMinutes = 60
 ) => {
   const serialize = useCallback((value: T) => {
     const now = new Date();

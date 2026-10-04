@@ -1,4 +1,3 @@
-import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   BookOpen, 
@@ -12,13 +11,15 @@ import {
   Calendar,
   Activity
 } from 'lucide-react';
-import { ProgressCard } from './ProgressCard';
-import { StatsCard } from './StatsCard';
-import { ActivityFeed } from './ActivityFeed';
-import { QuickActions } from './QuickActions';
+import React, { useState, useEffect } from 'react';
+
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../services/api';
 import { formatRelativeTime, formatDuration } from '../../utils/formatting';
+
+import ActivityFeed, { type ActivityItem } from './ActivityFeed';
+import QuickActions from './QuickActions';
+import StatsCard from './StatsCard';
 
 interface DashboardStats {
   coursesInProgress: number;
@@ -31,13 +32,14 @@ interface DashboardStats {
   communityRank: number;
 }
 
-interface RecentActivity {
-  id: string;
-  type: 'course_progress' | 'code_execution' | 'forum_post' | 'achievement' | 'snippet_created';
+type RecentActivity = ActivityItem;
+
+interface CourseRecommendation {
+  _id: string;
   title: string;
   description: string;
-  timestamp: string;
-  metadata?: any;
+  difficulty: string;
+  estimatedHours: number;
 }
 
 interface LearningProgress {
@@ -49,17 +51,50 @@ interface LearningProgress {
   estimatedTimeToComplete: number;
 }
 
+interface UserPayload {
+  user: {
+    statistics?: {
+      coursesInProgress?: number;
+      coursesCompleted?: number;
+      codeSnippets?: number;
+      forumPosts?: number;
+      totalTimeSpent?: number;
+    };
+    currentStreak?: number;
+    achievements?: unknown[];
+    communityRank?: number;
+  };
+}
+
+interface ProgressPayload {
+  progress?: Array<{
+    courseId: { _id: string; title: string };
+    progressPercentage: number;
+    lastAccessedAt: string;
+    nextLessonTitle?: string;
+    estimatedTimeToComplete?: number;
+  }>;
+}
+
+interface RecommendationsPayload {
+  recommendations?: CourseRecommendation[];
+}
+
+interface ActivityPayload {
+  activities?: RecentActivity[];
+}
+
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [learningProgress, setLearningProgress] = useState<LearningProgress[]>([]);
-  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [recommendations, setRecommendations] = useState<CourseRecommendation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadDashboardData();
+    void loadDashboardData();
   }, []);
 
   const loadDashboardData = async () => {
@@ -73,10 +108,10 @@ export const Dashboard: React.FC = () => {
         recommendationsResponse,
         activityResponse
       ] = await Promise.all([
-        api.get('/users/me'),
-        api.get('/learning/progress'),
-        api.get('/learning/recommendations'),
-        api.get('/users/me/activity')
+        api.get<UserPayload>('/users/me'),
+        api.get<ProgressPayload>('/learning/progress'),
+        api.get<RecommendationsPayload>('/learning/recommendations'),
+        api.get<ActivityPayload>('/users/me/activity')
       ]);
 
       const userData = userResponse.data.user;
@@ -96,7 +131,7 @@ export const Dashboard: React.FC = () => {
       setStats(dashboardStats);
       
       // Process learning progress
-      const progress = progressResponse.data.progress?.map((p: any) => ({
+      const progress = progressResponse.data.progress?.map((p) => ({
         courseId: p.courseId._id,
         courseTitle: p.courseId.title,
         progressPercentage: p.progressPercentage,
@@ -152,16 +187,16 @@ export const Dashboard: React.FC = () => {
           <div className="animate-pulse">
             {/* Header skeleton */}
             <div className="mb-8">
-              <div className="h-8 bg-gray-200 rounded w-64 mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded w-96"></div>
+              <div className="h-8 bg-gray-200 rounded w-64 mb-2" />
+              <div className="h-4 bg-gray-200 rounded w-96" />
             </div>
             
             {/* Stats grid skeleton */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {Array(4).fill(null).map((_, i) => (
                 <div key={i} className="bg-white p-6 rounded-lg shadow">
-                  <div className="h-4 bg-gray-200 rounded w-24 mb-2"></div>
-                  <div className="h-8 bg-gray-200 rounded w-16"></div>
+                  <div className="h-4 bg-gray-200 rounded w-24 mb-2" />
+                  <div className="h-8 bg-gray-200 rounded w-16" />
                 </div>
               ))}
             </div>
@@ -169,12 +204,12 @@ export const Dashboard: React.FC = () => {
             {/* Content skeleton */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white p-6 rounded-lg shadow h-64"></div>
-                <div className="bg-white p-6 rounded-lg shadow h-64"></div>
+                <div className="bg-white p-6 rounded-lg shadow h-64" />
+                <div className="bg-white p-6 rounded-lg shadow h-64" />
               </div>
               <div className="space-y-6">
-                <div className="bg-white p-6 rounded-lg shadow h-64"></div>
-                <div className="bg-white p-6 rounded-lg shadow h-64"></div>
+                <div className="bg-white p-6 rounded-lg shadow h-64" />
+                <div className="bg-white p-6 rounded-lg shadow h-64" />
               </div>
             </div>
           </div>
@@ -212,10 +247,10 @@ export const Dashboard: React.FC = () => {
         {/* Header */}
         <motion.div className="mb-8" variants={itemVariants}>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            {getGreeting()}, {user?.firstName || user?.username}! 👋
+            {getGreeting()}, {user?.firstName ?? user?.username}! 👋
           </h1>
           <p className="text-gray-600">
-            Ready to continue your C++ mastery journey? Here's your progress overview.
+            Ready to continue your C++ mastery journey? Here&apos;s your progress overview.
           </p>
         </motion.div>
 
@@ -226,32 +261,31 @@ export const Dashboard: React.FC = () => {
         >
           <StatsCard
             title="Courses in Progress"
-            value={stats?.coursesInProgress || 0}
-            icon={<BookOpen className="w-6 h-6" />}
-            color="blue"
-            trend={stats?.coursesInProgress ? 'up' : 'neutral'}
+            value={stats?.coursesInProgress ?? 0}
+            icon={BookOpen}
+            color="text-blue-600"
+            bgColor="bg-blue-100"
           />
           <StatsCard
             title="Code Snippets"
-            value={stats?.codeSnippets || 0}
-            icon={<Code className="w-6 h-6" />}
-            color="green"
-            trend={stats?.codeSnippets ? 'up' : 'neutral'}
+            value={stats?.codeSnippets ?? 0}
+            icon={Code}
+            color="text-green-600"
+            bgColor="bg-green-100"
           />
           <StatsCard
             title="Achievements"
-            value={stats?.achievements || 0}
-            icon={<Trophy className="w-6 h-6" />}
-            color="yellow"
-            trend={stats?.achievements ? 'up' : 'neutral'}
+            value={stats?.achievements ?? 0}
+            icon={Trophy}
+            color="text-yellow-600"
+            bgColor="bg-yellow-100"
           />
           <StatsCard
             title="Learning Time"
-            value={formatDuration(stats?.totalTimeSpent || 0)}
-            icon={<Clock className="w-6 h-6" />}
-            color="purple"
-            trend="up"
-            subtitle="Total hours"
+            value={formatDuration(stats?.totalTimeSpent ?? 0)}
+            icon={Clock}
+            color="text-purple-600"
+            bgColor="bg-purple-100"
           />
         </motion.div>
 
@@ -280,15 +314,28 @@ export const Dashboard: React.FC = () => {
               {learningProgress.length > 0 ? (
                 <div className="space-y-4">
                   {learningProgress.slice(0, 3).map((progress) => (
-                    <ProgressCard
+                    <a
                       key={progress.courseId}
-                      title={progress.courseTitle}
-                      progress={progress.progressPercentage}
-                      nextAction={progress.nextLessonTitle}
-                      lastActivity={formatRelativeTime(progress.lastAccessedAt)}
-                      estimatedTime={progress.estimatedTimeToComplete}
-                      courseId={progress.courseId}
-                    />
+                      href={`/learn/${progress.courseId}`}
+                      className="block p-4 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors"
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-medium text-gray-900">{progress.courseTitle}</h3>
+                        <span className="text-sm text-gray-500">
+                          {Math.round(progress.progressPercentage)}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full"
+                          style={{ width: `${Math.min(100, Math.max(0, progress.progressPercentage))}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        <span>Next: {progress.nextLessonTitle}</span>
+                        <span>{formatRelativeTime(progress.lastAccessedAt)}</span>
+                      </div>
+                    </a>
                   ))}
                 </div>
               ) : (
@@ -363,7 +410,7 @@ export const Dashboard: React.FC = () => {
                     <span className="text-sm text-gray-600">Forum Posts</span>
                   </div>
                   <span className="font-medium text-gray-900">
-                    {stats?.forumPosts || 0}
+                    {stats?.forumPosts ?? 0}
                   </span>
                 </div>
                 
@@ -373,7 +420,7 @@ export const Dashboard: React.FC = () => {
                     <span className="text-sm text-gray-600">Community Rank</span>
                   </div>
                   <span className="font-medium text-gray-900">
-                    #{stats?.communityRank || 'Unranked'}
+                    #{stats?.communityRank ?? 'Unranked'}
                   </span>
                 </div>
                 
@@ -383,7 +430,7 @@ export const Dashboard: React.FC = () => {
                     <span className="text-sm text-gray-600">Current Streak</span>
                   </div>
                   <span className="font-medium text-gray-900">
-                    {stats?.currentStreak || 0} days
+                    {stats?.currentStreak ?? 0} days
                   </span>
                 </div>
               </div>
@@ -446,3 +493,5 @@ export const Dashboard: React.FC = () => {
     </motion.div>
   );
 };
+
+export default Dashboard;

@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { motion } from 'framer-motion';
 import {
   Code,
@@ -12,15 +11,15 @@ import {
   Plus,
   Zap,
   Target,
-  MessageSquare,
-} from 'lucide-react';
+  MessageSquare, type LucideIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
+import React from 'react';
 
 interface QuickAction {
   id: string;
   title: string;
   description: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   color: string;
   bgColor: string;
   href: string;
@@ -93,7 +92,7 @@ const QuickActions: React.FC = () => {
     if (action.external) {
       window.open(action.href, '_blank');
     } else {
-      router.push(action.href);
+      void router.push(action.href);
     }
   };
 
