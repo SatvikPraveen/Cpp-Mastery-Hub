@@ -31,7 +31,7 @@ jobs:
       CC: ${{ matrix.cc }}
       CXX: ${{ matrix.cxx }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install toolchain (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-24.04
     env: { CC: clang-18, CXX: clang++-18 }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build clang-18
       - name: Build and test under sanitizers
         env:
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-24.04
     env: { CC: clang-18, CXX: clang++-18 }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build clang-18 clang-tidy-18 clang-format-18
       - name: Configure (exports compile_commands.json)
         run: cmake --preset dev
@@ -91,7 +91,7 @@ jobs:
     runs-on: ubuntu-24.04
     env: { CC: gcc-13, CXX: g++-13 }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build g++-13
       - name: Build release + benchmarks
         run: |
@@ -102,7 +102,7 @@ jobs:
           mkdir -p "$RUNNER_TEMP/results"
           python3 eval/run_eval.py --cli build/bench/cppmastery \
             --bench build/bench/benchmarks/cppmastery_bench --out "$RUNNER_TEMP/results"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: engine-evaluation-${{ github.sha }}
           path: ${{ runner.temp }}/results
@@ -113,7 +113,7 @@ jobs:
     runs-on: ubuntu-24.04
     env: { CC: clang-18, CXX: clang++-18 }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ninja-build clang-18
       - name: Build fuzzers
         run: |
