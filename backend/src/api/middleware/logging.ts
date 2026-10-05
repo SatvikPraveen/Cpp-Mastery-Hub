@@ -120,15 +120,19 @@ const maskSensitiveData = (obj: unknown, depth = 0): unknown => {
     return obj.map((item: unknown) => maskSensitiveData(item, depth + 1));
   }
 
-  const masked: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    const lowerKey = key.toLowerCase();
-    masked[key] = SENSITIVE_FIELDS.some((field) => lowerKey.includes(field))
-      ? '[MASKED]'
-      : maskSensitiveData(value, depth + 1);
-  }
-
-  return masked;
+  // Build the copy with Object.fromEntries rather than assigning masked[key],
+  // so a request-supplied key such as "__proto__" cannot reach the prototype.
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => {
+      const lowerKey = key.toLowerCase();
+      return [
+        key,
+        SENSITIVE_FIELDS.some((field) => lowerKey.includes(field))
+          ? '[MASKED]'
+          : maskSensitiveData(value, depth + 1),
+      ];
+    })
+  );
 };
 
 const toLoggedError = (error: unknown): LoggedError | undefined => {
@@ -285,16 +289,18 @@ export const securityLoggingMiddleware = (req: Request, res: Response, next: Nex
   const suspiciousPatterns = [
     /\.\.\//, // Directory traversal
     /<script/, // XSS attempts
-    /union.*select/i, // SQL injection
+    /\bunion\b[\s\S]{0,64}?\bselect\b/i, // SQL injection (bounded gap avoids ReDoS)
     /eval\s*\(/, // Code injection
     /javascript:/i, // JavaScript injection
     /vbscript:/i, // VBScript injection
-    /on\w+\s*=/, // Event handler injection
+    /\bon[a-z]{1,32}\s{0,8}=/i, // Event handler injection (bounded to avoid ReDoS)
   ];
 
-  const userAgent = req.get('User-Agent') || '';
-  const requestBody = JSON.stringify(req.body);
-  const queryString = req.url;
+  // Only inspect a bounded prefix of each untrusted input.
+  const MAX_INSPECT = 4096;
+  const userAgent = (req.get('User-Agent') || '').slice(0, MAX_INSPECT);
+  const requestBody = (JSON.stringify(req.body) ?? '').slice(0, MAX_INSPECT);
+  const queryString = req.url.slice(0, MAX_INSPECT);
 
   suspiciousPatterns.forEach(pattern => {
     if (pattern.test(userAgent) || pattern.test(requestBody) || pattern.test(queryString)) {
