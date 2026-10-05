@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 import { NotificationData } from '../components/Notification/Notification';
+import { sanitizeForLog } from '../utils/sanitizeLog';
 
 interface NotificationFilters {
   type?: string;
@@ -250,7 +251,7 @@ export const useNotifications = (): UseNotificationsReturn => {
               setNotifications((prev) => prev.filter((n) => n.id !== data.id));
               break;
             default:
-              console.log('Unknown WebSocket message type:', data.type);
+              console.log('Unknown WebSocket message type:', sanitizeForLog(data.type));
           }
         } catch (err) {
           console.error('Failed to parse WebSocket message:', err);

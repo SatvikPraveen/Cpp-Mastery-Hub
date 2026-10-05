@@ -1,3 +1,5 @@
+import { sanitizeForLog } from '../utils/sanitizeLog';
+
 interface SocketMessage {
   type: string;
   payload?: any;
@@ -116,7 +118,7 @@ export class SocketService {
         try {
           handler(data);
         } catch (error) {
-          console.error(`Error in socket event handler for '${event}':`, error);
+          console.error('Error in socket event handler for %s:', sanitizeForLog(event), error);
         }
       });
     }
@@ -265,7 +267,7 @@ export class SocketService {
         break;
       
       case 'auth_error':
-        console.error('Authentication failed:', message.payload);
+        console.error('Authentication failed:', sanitizeForLog(message.payload));
         this.emit('auth_error', message.payload);
         break;
       
@@ -274,7 +276,7 @@ export class SocketService {
         break;
       
       case 'error':
-        console.error('Server error:', message.payload);
+        console.error('Server error:', sanitizeForLog(message.payload));
         this.emit('server_error', message.payload);
         break;
       
@@ -349,7 +351,7 @@ export class SocketService {
 
   private log(...args: any[]): void {
     if (this.config.debug) {
-      console.log('[SocketService]', ...args);
+      console.log('[SocketService]', ...args.map((arg) => sanitizeForLog(arg)));
     }
   }
 }

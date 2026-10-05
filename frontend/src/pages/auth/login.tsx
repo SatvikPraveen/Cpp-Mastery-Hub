@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react';
 
 import Layout from '../../components/Layout/Layout';
 import { useAuth } from '../../hooks/useAuth';
+import { safeReturnUrl } from '../../utils/safeRedirect';
 
 const OAUTH_ENABLED = process.env.NEXT_PUBLIC_ENABLE_OAUTH === 'true';
 
@@ -26,8 +27,7 @@ const LoginPage: React.FC<LoginPageProps> = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const returnUrl = router.query.returnUrl as string;
-      void router.push(returnUrl || '/learn');
+      void router.push(safeReturnUrl(router.query.returnUrl, '/learn'));
     }
   }, [isAuthenticated, router]);
 
@@ -51,8 +51,7 @@ const LoginPage: React.FC<LoginPageProps> = () => {
       await login({ email: formData.email, password: formData.password, rememberMe });
 
       // Redirect to return URL or dashboard
-      const returnUrl = router.query.returnUrl as string;
-      void router.push(returnUrl || '/learn');
+      void router.push(safeReturnUrl(router.query.returnUrl, '/learn'));
     } catch (error: any) {
       setError(error.response?.data?.message || 'Login failed. Please try again.');
     } finally {

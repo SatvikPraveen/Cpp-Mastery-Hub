@@ -56,7 +56,7 @@ export const PostCard: React.FC<PostCardProps> = ({
           aria-label={`View ${authorName}'s profile`}
           className="flex-shrink-0 rounded-full disabled:cursor-default"
         >
-          <UserAvatar user={post.user ?? post.user} size="md" />
+          <UserAvatar user={post.user} size="md" />
         </button>
 
         <div className="flex-1 min-w-0">

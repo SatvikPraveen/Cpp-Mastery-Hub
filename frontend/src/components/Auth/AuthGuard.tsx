@@ -1,6 +1,7 @@
 import { useRouter } from 'next/router';
 import React, { useEffect, useState } from 'react';
 
+import { safeReturnUrl } from '../../utils/safeRedirect';
 import { Loading } from '../UI/Loading';
 
 interface AuthGuardProps {
@@ -97,8 +98,7 @@ export const AuthGuard: React.FC<AuthGuardProps> = ({
     // If user is authenticated but on auth pages, redirect to dashboard
     if (!requireAuth && user && router.pathname.startsWith('/auth')) {
       setHasRedirected(true);
-      const returnUrl = router.query.returnUrl as string;
-      void router.replace(returnUrl || '/dashboard');
+      void router.replace(safeReturnUrl(router.query.returnUrl, '/dashboard'));
       return;
     }
   }, [user, loading, requireAuth, requireAdmin, router, redirectTo, hasRedirected]);

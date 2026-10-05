@@ -159,7 +159,7 @@ export const PostView: React.FC<PostViewProps> = ({ postId }) => {
                   
                   <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                     <div className="flex items-center space-x-2">
-                      <UserAvatar user={post.user ?? post.user} size="sm" />
+                      <UserAvatar user={post.user} size="sm" />
                       <span>{authorName}</span>
                     </div>
                     

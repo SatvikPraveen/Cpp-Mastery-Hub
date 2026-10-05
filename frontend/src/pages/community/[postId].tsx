@@ -283,7 +283,7 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
               {/* Author Info */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-3">
-                  <UserAvatar user={post.user ?? post.user} size="md" />
+                  <UserAvatar user={post.user} size="md" />
                   <div>
                     <p className="font-semibold text-gray-900 dark:text-white">
                       {getUserDisplayName(post.user)}
@@ -401,7 +401,7 @@ const PostPage: React.FC<PostPageProps> = ({ postId }) => {
             >
               <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Author</h3>
               <div className="text-center">
-                <UserAvatar user={post.user ?? post.user} size="lg" className="mx-auto mb-3" />
+                <UserAvatar user={post.user} size="lg" className="mx-auto mb-3" />
                 <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
                   {getUserDisplayName(post.user)}
                 </h4>
