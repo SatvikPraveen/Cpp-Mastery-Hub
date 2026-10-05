@@ -102,7 +102,13 @@ class AnalyticsService {
   }
 
   private generateSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const c = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
+    if (c && typeof c.randomUUID === 'function') {
+      return `session_${c.randomUUID()}`;
+    }
+    const bytes = new Uint8Array(16);
+    c?.getRandomValues?.(bytes);
+    return `session_${Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')}`;
   }
 
   private initializePerformanceTracking(): void {
