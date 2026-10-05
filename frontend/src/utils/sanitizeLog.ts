@@ -14,11 +14,12 @@ export function sanitizeForLog(value: unknown, maxLength = 500): string {
       text = String(value);
     }
   }
-  text = Array.from(text, (ch) => (isUnsafeLogChar(ch.charCodeAt(0)) ? ' ' : ch)).join('');
+  // Remove CR/LF first (the log-forging characters), then neutralise any other
+  // C0 control characters, DEL and Unicode line/paragraph separators.
+  text = text
+    .replace(/\r/g, '')
+    .replace(/\n/g, '')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f\u2028\u2029]/g, ' ');
   return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
-}
-
-function isUnsafeLogChar(code: number): boolean {
-  // C0 controls (incl. CR/LF), DEL, and Unicode line/paragraph separators.
-  return code < 0x20 || code === 0x7f || code === 0x2028 || code === 0x2029;
 }
