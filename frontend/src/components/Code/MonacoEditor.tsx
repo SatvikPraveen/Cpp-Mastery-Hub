@@ -47,7 +47,11 @@ const MonacoEditor = forwardRef<CodeEditorHandle, CodeEditorProps>((
     let disposed = false;
     let cleanup: (() => void) | undefined;
 
-    void loader.init().then((monaco) => {
+    // @monaco-editor/loader types its result via a deep `monaco-editor/esm/...`
+    // import that newer monaco-editor `exports` maps no longer resolve, so it
+    // would degrade to `any`. Use the package's own public types instead.
+    void loader.init().then((loaded) => {
+      const monaco = loaded as unknown as typeof Monaco;
       if (disposed || !containerRef.current) return;
       monacoRef.current = monaco;
       const editor = monaco.editor.create(containerRef.current, {
