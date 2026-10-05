@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import rateLimit, { type RateLimitRequestHandler, type Store as ExpressRateLimitStore } from 'express-rate-limit';
 import { Redis } from 'ioredis';
 
 interface RateLimitOptions {
@@ -417,3 +418,57 @@ export const combineBypassConditions = (...conditions: Array<(req: Request) => b
 };
 
 export default createRateLimit;
+/**
+ * Adapts one of the stores above (Redis when REDIS_URL is set, otherwise
+ * in-memory) to the express-rate-limit Store interface. Store failures fail
+ * open, matching createRateLimit, so a Redis outage does not take the API down.
+ */
+class ExpressStoreAdapter implements ExpressRateLimitStore {
+  constructor(private readonly store: RateLimitStore, private readonly windowMs: number) {}
+
+  async increment(key: string): Promise<{ totalHits: number; resetTime: Date | undefined }> {
+    try {
+      return await this.store.increment(key);
+    } catch (error) {
+      console.error('Rate limit store error:', error);
+      return { totalHits: 0, resetTime: new Date(Date.now() + this.windowMs) };
+    }
+  }
+
+  async decrement(key: string): Promise<void> {
+    await this.store.decrement?.(key).catch(() => undefined);
+  }
+
+  async resetKey(key: string): Promise<void> {
+    await this.store.resetKey?.(key).catch(() => undefined);
+  }
+}
+
+/**
+ * Application-wide API limiter built on express-rate-limit. Applied to every
+ * /api route in app.ts, in front of the stricter per-route limiters.
+ */
+export function createApiRateLimit(options: {
+  windowMs: number;
+  max: number;
+  store?: RateLimitStore;
+}): RateLimitRequestHandler {
+  const { windowMs, max } = options;
+  const backing =
+    options.store ??
+    (process.env.REDIS_URL ? new RedisStore(new Redis(process.env.REDIS_URL), windowMs) : new MemoryStore(windowMs));
+
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    store: new ExpressStoreAdapter(backing, windowMs),
+    handler: (_req, res) => {
+      res.status(429).json({
+        error: 'Rate limit exceeded',
+        message: 'Too many requests, please try again later.',
+      });
+    },
+  });
+}

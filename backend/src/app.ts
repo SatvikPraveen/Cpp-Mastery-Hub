@@ -6,7 +6,7 @@ import morgan from 'morgan';
 
 import { authenticateToken } from './api/middleware/auth';
 import { errorHandler, notFoundHandler } from './api/middleware/errorHandler';
-import { createIPRateLimit } from './api/middleware/ratelimit';
+import { createApiRateLimit } from './api/middleware/ratelimit';
 import adminRoutes from './api/routes/admin';
 import analysisRoutes from './api/routes/analysis';
 import authRoutes from './api/routes/auth';
@@ -64,7 +64,7 @@ export function createApp(): Express {
       .catch(next);
   });
 
-  app.use('/api', createIPRateLimit({ windowMs: 15 * 60_000, maxRequests: securityConfig.rateLimit.max }));
+  app.use('/api', createApiRateLimit({ windowMs: 15 * 60_000, max: securityConfig.rateLimit.max }));
   app.use('/api/auth', authRoutes);
   app.use('/api/analysis', analysisRoutes);
   app.use('/api/code', codeRoutes);
