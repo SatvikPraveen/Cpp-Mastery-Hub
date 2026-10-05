@@ -85,7 +85,7 @@ describe('Database Integration Tests', () => {
         authorId: user.id
       };
 
-      const snippet = await prisma.codeSnippet.create({
+      await prisma.codeSnippet.create({
         data: snippetData
       });
 

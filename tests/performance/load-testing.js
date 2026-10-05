@@ -434,7 +434,8 @@ export function websocketLoadTest() {
 }
 
 function textSummary(data, options = {}) {
-  const { indent = '', enableColors = false } = options;
+  // enableColors is accepted for k6 API compatibility; this summary is plain text.
+  const { indent = '' } = options;
   
   return `
 ${indent}Test Summary:

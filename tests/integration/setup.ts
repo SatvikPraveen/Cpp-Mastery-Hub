@@ -3,10 +3,7 @@
  * Comprehensive test environment configuration and utilities
  */
 
-import { test as base, expect, Page, BrowserContext } from '@playwright/test';
-import { readFileSync } from 'fs';
-import { join } from 'path';
-import jwt from 'jsonwebtoken';
+import { test as base, expect, Page } from '@playwright/test';
 
 // ===== TEST CONFIGURATION =====
 
@@ -632,5 +629,7 @@ expect.extend({
   }
 });
 
-// Export helper classes for use in tests
-export { PageHelpers, AuthHelpers, CodeEditorHelpers, DatabaseHelpers };
+// Re-export Playwright's expect (with the custom matchers registered above) so
+// test files can `import { test, expect } from './setup'`. The helper classes
+// are already exported at their declarations.
+export { expect };

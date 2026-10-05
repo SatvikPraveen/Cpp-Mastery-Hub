@@ -14,8 +14,6 @@ test.describe('Code Editor Functionality', () => {
 
   test.describe('Basic Editor Features', () => {
     test('should load with default C++ template', async ({ authenticatedPage }) => {
-      const codeEditorHelpers = new CodeEditorHelpers(authenticatedPage);
-      
       // Check if editor loads with default template
       const editor = authenticatedPage.locator('[data-testid="code-editor"]');
       await expect(editor).toBeVisible();

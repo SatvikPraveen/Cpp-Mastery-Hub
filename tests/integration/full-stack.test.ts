@@ -1,9 +1,5 @@
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
 import axios from 'axios';
-import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
 
 describe('Full Stack Integration Tests', () => {
   const FRONTEND_URL = 'http://localhost:3000';

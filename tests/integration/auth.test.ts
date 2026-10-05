@@ -15,7 +15,6 @@ test.describe('Authentication Flow', () => {
 
   test.describe('User Registration', () => {
     test('should register a new user successfully', async ({ page, testData }) => {
-      const authHelpers = new AuthHelpers(page);
       const pageHelpers = new PageHelpers(page);
 
       const userData = {
@@ -407,7 +406,6 @@ test.describe('Authentication Flow', () => {
 
     test('should handle concurrent login sessions', async ({ page, testData }) => {
       const authHelpers = new AuthHelpers(page);
-      const student = testData.getUser('student');
 
       // Login in first browser context
       await authHelpers.login('student');
