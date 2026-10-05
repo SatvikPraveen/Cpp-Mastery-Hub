@@ -245,7 +245,8 @@ export function createRateLimit(options: RateLimitOptions) {
         }
 
         // Log rate limit violation
-        console.warn(`Rate limit exceeded for ${key}: ${totalHits}/${maxRequests} requests`);
+        // The key may embed an API key or user id, so it is never logged.
+        console.warn(`Rate limit exceeded: ${totalHits}/${maxRequests} requests in window`);
 
         res.status(statusCode).json({
           error: 'Rate limit exceeded',
