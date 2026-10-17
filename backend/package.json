@@ -94,7 +94,7 @@
     "tsx": "^4.23.15",
     "tsc-alias": "^1.8.7",
     "rimraf": "^5.0.1",
-    "prettier": "^3.0.3"
+    "prettier": "^3.9.10"
   },
   "prettier": {
     "semi": true,
