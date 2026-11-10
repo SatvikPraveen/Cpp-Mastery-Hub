@@ -131,7 +131,12 @@ router.patch(
   auth,
   handle(async (req, res) => {
     const { id: snippetId } = parse(id, req.params);
-    const body = parse(snippetBody.partial(), req.body);
+    // zod 4 applies defaults inside optional fields; drop the create-time default so an omitted
+    // field stays undefined (not updated).
+    const body = parse(
+      snippetBody.extend({ language: snippetBody.shape.language.unwrap() }).partial(),
+      req.body
+    );
     if (Object.keys(body).length === 0) throw new ApiError(400, 'No fields to update');
     res.json({
       success: true,
