@@ -173,7 +173,12 @@ router.patch(
   authenticateToken,
   handle(async (req, res) => {
     const { id } = parse(postId, req.params);
-    const body = parse(postBody.partial().omit({ categoryId: true }), req.body);
+    // zod 4 applies defaults inside optional fields; drop the create-time default so an omitted
+    // field stays undefined (not updated).
+    const body = parse(
+      postBody.extend({ tags: postBody.shape.tags.unwrap() }).partial().omit({ categoryId: true }),
+      req.body
+    );
     await loadOwnedPost(id, req);
     const data: Prisma.ForumPostUpdateInput = {};
     if (body.title !== undefined) data.title = body.title;

@@ -4,7 +4,7 @@ import type { z } from 'zod';
 import { ApiError } from '../utils/errors';
 
 /** Validates `input` with a zod schema, raising a 400 ApiError that lists every issue. */
-export function parse<T>(schema: z.ZodType<T, z.ZodTypeDef, unknown>, input: unknown): T {
+export function parse<T>(schema: z.ZodType<T, unknown>, input: unknown): T {
   const result = schema.safeParse(input);
   if (!result.success) {
     throw new ApiError(400, 'Invalid request', {

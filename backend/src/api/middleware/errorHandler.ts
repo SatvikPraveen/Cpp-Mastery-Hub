@@ -78,7 +78,7 @@ export class RateLimitError extends AppError {
 const handleZodError = (error: ZodError): ValidationError => {
   const errors: Record<string, string[]> = {};
   
-  error.errors.forEach((err) => {
+  error.issues.forEach((err) => {
     const field = err.path.join('.') || 'body';
     const messages = errors[field] ?? [];
     messages.push(err.message);
